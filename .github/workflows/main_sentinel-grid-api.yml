@@ -15,20 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies into target folder
-        working-directory: apps/api
-        run: |
-          pip install --upgrade pip
-          pip install --target=".python_packages/lib/site-packages" -r requirements.txt
-
       - name: Zip API for deploy
         working-directory: apps/api
-        run: zip -r ../../release.zip . -x "__pycache__/*" "*.pyc"
+        run: zip -r ../../release.zip . -x "__pycache__/*" "*.pyc" ".python_packages/*" "venv/*"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
