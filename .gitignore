@@ -12,3 +12,4 @@ synthea/output/
 .ipynb_checkpoints/
 .streamlit/secrets.toml
 synthea/
+publish-profile.xml
