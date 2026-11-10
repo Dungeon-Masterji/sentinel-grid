@@ -1,0 +1,48 @@
+# Core data
+pandas
+numpy
+duckdb
+pyarrow
+python-dotenv
+requests
+httpx
+
+# Clinical / FHIR
+fhir.resources
+
+# Time-series + anomaly detection
+pyod
+prophet
+darts
+river
+
+# Bayesian fusion
+pymc
+
+# Explainability
+shap
+
+# Geospatial
+geopandas
+h3
+folium
+pydeck
+
+# Dashboard
+streamlit
+plotly
+streamlit-folium
+
+# Privacy
+anonypy
+faker
+
+# LLM + notifications
+groq
+apprise
+
+# Dev tooling
+jupyter
+ipykernel
+black
+ruff
