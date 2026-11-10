@@ -8,14 +8,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS — allow Vercel preview + prod
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://sentinel-grid.vercel.app",
-        "https://*.vercel.app",
-    ],
+    allow_origin_regex=r"https://sentinel-grid.*\.vercel\.app|http://localhost:3000",
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
