@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Installing dependencies..."
-pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+TARGET="/home/site/wwwroot/.python_packages/lib/site-packages"
+
+echo "Installing dependencies to $TARGET..."
+python -m pip install --target="$TARGET" --upgrade -r requirements.txt
 
 echo "Starting uvicorn..."
-export PYTHONPATH="/home/site/wwwroot/.python_packages/lib/site-packages:$PYTHONPATH"
-uvicorn main:app --host 0.0.0.0 --port 8000
+export PYTHONPATH="$TARGET:$PYTHONPATH"
+exec python -m uvicorn main:app --host 0.0.0.0 --port 8000
