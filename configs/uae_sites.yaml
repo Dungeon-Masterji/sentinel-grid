@@ -1,0 +1,16 @@
+# Reference WAQI stations (confirmed live 2026-11-10)
+waqi_stations:
+  - id: 3781
+    name: "Sweihan/School"
+    lat: 24.466681826205
+    lon: 55.342881035444
+    coverage_area: "Dubai periphery / Al Ain road"
+  - id: 3768
+    name: "Abu Dhabi City/Khadija Primary School"
+    lat: 24.484653749994
+    lon: 54.364735330707
+    coverage_area: "Abu Dhabi central"
+
+default_coordinates:
+  dubai: { lat: 25.25, lon: 55.35 }
+  abu_dhabi: { lat: 24.47, lon: 54.37 }
