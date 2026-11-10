@@ -11,3 +11,4 @@ synthea/output/
 .DS_Store
 .ipynb_checkpoints/
 .streamlit/secrets.toml
+synthea/
