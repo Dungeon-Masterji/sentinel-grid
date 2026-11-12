@@ -1,0 +1,11 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE02000,9020000000,Dubai Urgent Care Clinic (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.268723,55.292415,,,,true,,,,,
+AE02001,9020000001,Abu Dhabi Urgent Care Clinic (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.457835,54.377401,,,,true,,,,,
+AE02002,9020000002,Sharjah Urgent Care Clinic (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.35015,55.421063,,,,true,,,,,
+AE02003,9020000003,Ajman Urgent Care Clinic (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.397656,55.445143,,,,true,,,,,
+AE02004,9020000004,Ras Al Khaimah Urgent Care Clinic (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.777771,55.938232,,,,true,,,,,
+AE02005,9020000005,Fujairah Urgent Care Clinic (Synthetic),"Fujairah, United Arab Emirates",Fujairah,AE,00006,006,25.12846,56.335509,,,,true,,,,,
+AE02006,9020000006,Umm Al Quwain Urgent Care Clinic (Synthetic),"Umm Al Quwain, United Arab Emirates",Umm Al Quwain,AE,00007,007,25.556044,55.547498,,,,true,,,,,
+AE02007,9020000007,Al Ain Urgent Care Clinic (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22887,55.745221,,,,true,,,,,
+AE02008,9020000008,Khalifa City Urgent Care Clinic (Synthetic),"Khalifa City, United Arab Emirates",Khalifa City,AE,00009,009,24.424131,54.574953,,,,true,,,,,
+AE02009,9020000009,Mohammed Bin Zayed City Urgent Care Clinic (Synthetic),"Mohammed Bin Zayed City, United Arab Emirates",Mohammed Bin Zayed City,AE,00010,010,24.337959,54.553556,,,,true,,,,,

@@ -11,5 +11,9 @@ synthea/output/
 .DS_Store
 .ipynb_checkpoints/
 .streamlit/secrets.toml
-synthea/
+/synthea/
 publish-profile.xml
+
+# deploy-time copies (populated by the Azure deploy workflow)
+apps/api/_vendor/
+apps/api/data/

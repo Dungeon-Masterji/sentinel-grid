@@ -1,0 +1,7 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE08000,9080000000,Dubai Home Health Service (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.268723,55.296415,,,,false,,,,,
+AE08001,9080000001,Abu Dhabi Home Health Service (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.457835,54.381401,,,,false,,,,,
+AE08002,9080000002,Sharjah Home Health Service (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.35015,55.425063,,,,false,,,,,
+AE08003,9080000003,Ajman Home Health Service (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.397656,55.449143,,,,false,,,,,
+AE08004,9080000004,Ras Al Khaimah Home Health Service (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.777771,55.942232,,,,false,,,,,
+AE08007,9080000007,Al Ain Home Health Service (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22887,55.749221,,,,false,,,,,

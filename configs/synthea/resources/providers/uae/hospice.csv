@@ -1,0 +1,7 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE07000,9070000000,Dubai Palliative Care Unit (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.264723,55.292415,,,,false,,,,20,
+AE07001,9070000001,Abu Dhabi Palliative Care Unit (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.453835,54.377401,,,,false,,,,20,
+AE07002,9070000002,Sharjah Palliative Care Unit (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.34615,55.421063,,,,false,,,,20,
+AE07003,9070000003,Ajman Palliative Care Unit (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.393656,55.445143,,,,false,,,,20,
+AE07004,9070000004,Ras Al Khaimah Palliative Care Unit (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.773771,55.938232,,,,false,,,,20,
+AE07007,9070000007,Al Ain Palliative Care Unit (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22487,55.745221,,,,false,,,,20,

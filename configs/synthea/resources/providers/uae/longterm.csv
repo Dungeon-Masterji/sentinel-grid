@@ -1,0 +1,7 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE05000,9050000000,Dubai Long-Term Care Centre (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.268723,55.284415,,,,false,,,,80,
+AE05001,9050000001,Abu Dhabi Long-Term Care Centre (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.457835,54.369401,,,,false,,,,80,
+AE05002,9050000002,Sharjah Long-Term Care Centre (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.35015,55.413063,,,,false,,,,80,
+AE05003,9050000003,Ajman Long-Term Care Centre (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.397656,55.437143,,,,false,,,,80,
+AE05004,9050000004,Ras Al Khaimah Long-Term Care Centre (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.777771,55.930232,,,,false,,,,80,
+AE05007,9050000007,Al Ain Long-Term Care Centre (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22887,55.737221,,,,false,,,,80,

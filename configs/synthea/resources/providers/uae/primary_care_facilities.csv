@@ -1,0 +1,11 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE01000,9010000000,Dubai Primary Health Centre (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.264723,55.288415,,,,false,,,,,
+AE01001,9010000001,Abu Dhabi Primary Health Centre (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.453835,54.373401,,,,false,,,,,
+AE01002,9010000002,Sharjah Primary Health Centre (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.34615,55.417063,,,,false,,,,,
+AE01003,9010000003,Ajman Primary Health Centre (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.393656,55.441143,,,,false,,,,,
+AE01004,9010000004,Ras Al Khaimah Primary Health Centre (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.773771,55.934232,,,,false,,,,,
+AE01005,9010000005,Fujairah Primary Health Centre (Synthetic),"Fujairah, United Arab Emirates",Fujairah,AE,00006,006,25.12446,56.331509,,,,false,,,,,
+AE01006,9010000006,Umm Al Quwain Primary Health Centre (Synthetic),"Umm Al Quwain, United Arab Emirates",Umm Al Quwain,AE,00007,007,25.552043,55.543498,,,,false,,,,,
+AE01007,9010000007,Al Ain Primary Health Centre (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22487,55.741221,,,,false,,,,,
+AE01008,9010000008,Khalifa City Primary Health Centre (Synthetic),"Khalifa City, United Arab Emirates",Khalifa City,AE,00009,009,24.420131,54.570954,,,,false,,,,,
+AE01009,9010000009,Mohammed Bin Zayed City Primary Health Centre (Synthetic),"Mohammed Bin Zayed City, United Arab Emirates",Mohammed Bin Zayed City,AE,00010,010,24.333959,54.549556,,,,false,,,,,

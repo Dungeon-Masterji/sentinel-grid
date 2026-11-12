@@ -1,0 +1,7 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE03000,9030000000,Dubai Dialysis Centre (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.260723,55.296415,,,,false,,,,,
+AE03001,9030000001,Abu Dhabi Dialysis Centre (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.449835,54.381401,,,,false,,,,,
+AE03002,9030000002,Sharjah Dialysis Centre (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.34215,55.425063,,,,false,,,,,
+AE03003,9030000003,Ajman Dialysis Centre (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.389656,55.449143,,,,false,,,,,
+AE03004,9030000004,Ras Al Khaimah Dialysis Centre (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.76977,55.942232,,,,false,,,,,
+AE03007,9030000007,Al Ain Dialysis Centre (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22087,55.749221,,,,false,,,,,

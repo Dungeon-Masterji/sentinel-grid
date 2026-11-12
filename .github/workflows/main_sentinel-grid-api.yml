@@ -32,6 +32,29 @@ jobs:
             --implementation cp \
             -r requirements.txt
 
+      - name: Vendor pipeline code used by the API
+        # apps/api/routers/clinical.py loads this via importlib from wwwroot/_vendor
+        run: |
+          mkdir -p apps/api/_vendor
+          cp packages/pipelines/synth/synthea_wrapper.py apps/api/_vendor/
+
+      - name: Pull clinical parquets from data branch
+        # Written nightly by .github/workflows/clinical-refresh.yml. If the branch
+        # doesn't exist yet the API still deploys and returns 503 for clinical routes.
+        run: |
+          set -euo pipefail
+          branch=data/processed/clinical
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            git fetch --depth 1 origin "$branch"
+            mkdir -p apps/api/data/clinical
+            for f in events.parquet patients.parquet; do
+              git show "FETCH_HEAD:data/processed/clinical/$f" > "apps/api/data/clinical/$f"
+            done
+            ls -la apps/api/data/clinical
+          else
+            echo "::warning::no $branch branch yet; deploying without clinical data"
+          fi
+
       - name: Zip API with bundled deps
         working-directory: apps/api
         run: zip -r ../../release.zip . -x "__pycache__/*" "*.pyc" "venv/*"

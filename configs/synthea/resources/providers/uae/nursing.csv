@@ -1,0 +1,7 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE06000,9060000000,Dubai Nursing Home (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.260723,55.288415,,,,false,,,,80,
+AE06001,9060000001,Abu Dhabi Nursing Home (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.449835,54.373401,,,,false,,,,80,
+AE06002,9060000002,Sharjah Nursing Home (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.34215,55.417063,,,,false,,,,80,
+AE06003,9060000003,Ajman Nursing Home (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.389656,55.441143,,,,false,,,,80,
+AE06004,9060000004,Ras Al Khaimah Nursing Home (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.76977,55.934232,,,,false,,,,80,
+AE06007,9060000007,Al Ain Nursing Home (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22087,55.741221,,,,false,,,,80,

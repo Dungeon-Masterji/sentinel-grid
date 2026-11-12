@@ -1,0 +1,7 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE04000,9040000000,Dubai Rehabilitation Centre (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.264723,55.300415,,,,false,,,,60,
+AE04001,9040000001,Abu Dhabi Rehabilitation Centre (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.453835,54.385401,,,,false,,,,60,
+AE04002,9040000002,Sharjah Rehabilitation Centre (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.34615,55.429063,,,,false,,,,60,
+AE04003,9040000003,Ajman Rehabilitation Centre (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.393656,55.453143,,,,false,,,,60,
+AE04004,9040000004,Ras Al Khaimah Rehabilitation Centre (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.773771,55.946232,,,,false,,,,60,
+AE04007,9040000007,Al Ain Rehabilitation Centre (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22487,55.753221,,,,false,,,,60,

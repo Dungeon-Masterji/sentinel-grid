@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import health, signals, alerts
+from routers import health, signals, alerts, clinical
 
 app = FastAPI(
     title="Sentinel Grid API",
@@ -18,8 +18,9 @@ app.add_middleware(
 
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(signals.router, prefix="/api/signals", tags=["signals"])
+app.include_router(clinical.router, prefix="/api/signals/clinical", tags=["clinical"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "sentinel-grid-api", "build_marker": "cors-v2"}
+    return {"status": "ok", "service": "sentinel-grid-api", "build_marker": "clinical-v1"}

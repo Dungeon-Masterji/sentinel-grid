@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Activity, CloudSun, HardHat, AlertTriangle, MapPin } from "lucide-react";
+import { CloudSun, HardHat, AlertTriangle, MapPin } from "lucide-react";
+import { ClinicalCard } from "@/components/clinical-card";
 import { fetcher } from "@/lib/api";
 
 type WaqiReading = {
@@ -155,16 +156,7 @@ export default function Home() {
         <section>
           <h2 className="text-sm uppercase tracking-wider text-slate-500 mb-3">Signal pillars</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Clinical</CardTitle>
-                <Activity className="h-4 w-4 text-teal-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">wiring</div>
-                <p className="text-xs text-slate-500 mt-1">Synthea · FHIR bundles</p>
-              </CardContent>
-            </Card>
+            <ClinicalCard />
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">

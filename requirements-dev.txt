@@ -1,0 +1,3 @@
+# Local/CI dev dependencies for the pipelines and tests (not deployed to Azure).
+-r apps/api/requirements.txt
+pytest>=8

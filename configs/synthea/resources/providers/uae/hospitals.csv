@@ -1,0 +1,11 @@
+provider_num,npi,name,address,city,state,zip,fips_county,lat,lon,phone,provider_type_code,category,emergency,upin,pin,region_code,bed_count,clia_lab_number
+AE00000,9000000000,Dubai General Hospital (Synthetic),"Dubai, United Arab Emirates",Dubai,AE,00001,001,25.260723,55.284415,,,,true,,,,300,
+AE00001,9000000001,Abu Dhabi General Hospital (Synthetic),"Abu Dhabi, United Arab Emirates",Abu Dhabi,AE,00002,002,24.449835,54.369401,,,,true,,,,300,
+AE00002,9000000002,Sharjah General Hospital (Synthetic),"Sharjah, United Arab Emirates",Sharjah,AE,00003,003,25.34215,55.413063,,,,true,,,,300,
+AE00003,9000000003,Ajman General Hospital (Synthetic),"Ajman, United Arab Emirates",Ajman,AE,00004,004,25.389656,55.437143,,,,true,,,,300,
+AE00004,9000000004,Ras Al Khaimah General Hospital (Synthetic),"Ras Al Khaimah, United Arab Emirates",Ras Al Khaimah,AE,00005,005,25.76977,55.930232,,,,true,,,,300,
+AE00005,9000000005,Fujairah General Hospital (Synthetic),"Fujairah, United Arab Emirates",Fujairah,AE,00006,006,25.12046,56.327509,,,,true,,,,300,
+AE00006,9000000006,Umm Al Quwain General Hospital (Synthetic),"Umm Al Quwain, United Arab Emirates",Umm Al Quwain,AE,00007,007,25.548043,55.539498,,,,true,,,,300,
+AE00007,9000000007,Al Ain General Hospital (Synthetic),"Al Ain, United Arab Emirates",Al Ain,AE,00008,008,24.22087,55.737221,,,,true,,,,300,
+AE00008,9000000008,Khalifa City General Hospital (Synthetic),"Khalifa City, United Arab Emirates",Khalifa City,AE,00009,009,24.416131,54.566953,,,,true,,,,300,
+AE00009,9000000009,Mohammed Bin Zayed City General Hospital (Synthetic),"Mohammed Bin Zayed City, United Arab Emirates",Mohammed Bin Zayed City,AE,00010,010,24.329959,54.545556,,,,true,,,,300,

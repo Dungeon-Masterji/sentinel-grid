@@ -1,0 +1,6 @@
+Id,Name,Address,City,State Headquarterd,Zip,Phone,States Covered,Ownership
+10000,Medicare,n/a,n/a,AE,00000,n/a,*,Government
+20000,Medicaid,n/a,n/a,AE,00000,n/a,*,Government
+30000,Dual Eligible,n/a,n/a,AE,00000,n/a,*,Government
+41000,UAE Government Health Programme (Synthetic),n/a,Abu Dhabi,AE,00002,n/a,*,Government
+42000,UAE Employer Health Insurer (Synthetic),n/a,Dubai,AE,00001,n/a,*,Private
