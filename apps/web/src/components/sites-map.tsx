@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { TIER, pct, type SiteStatus } from "@/lib/occupational";
 
 // Free CARTO vector basemap (no API key).
-const STYLE = "https://tiles.openfreemap.org/styles/positron";
+const STYLE = `https://api.maptiler.com/maps/dataviz-light/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`;
 
 export default function SitesMap({ sites }: { sites: SiteStatus[] }) {
   const [selected, setSelected] = useState<SiteStatus | null>(null);
