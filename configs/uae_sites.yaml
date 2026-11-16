@@ -14,3 +14,216 @@ waqi_stations:
 default_coordinates:
   dubai: { lat: 25.25, lon: 55.35 }
   abu_dhabi: { lat: 24.47, lon: 54.37 }
+
+# ---------------------------------------------------------------------------
+# Occupational pillar: 15 real UAE industrial / construction / logistics sites.
+#
+# Coordinates are from OpenStreetMap (Nominatim, geocoded 2026-11-16); the OSM
+# object each point came from is in `osm`. h3_res8 = h3.latlng_to_cell(lat, lon, 8)
+# (h3-py 4.x); tests/test_occupational.py checks it stays in sync with lat/lon.
+#
+# The site names and operators are real. worker_count, shift_pattern and
+# heat_exposure are MODELLED assumptions, not operator-published figures. Every
+# worker attached to these sites is synthetic (docs/ETHICS.md).
+#
+# sector:        construction | logistics | industrial | ports | aviation
+# shift_pattern: double_12h | triple_8h | day_only
+# heat_exposure: outdoor | mixed | indoor_hot | indoor_cool
+# ---------------------------------------------------------------------------
+sites:
+  - id: al-maktoum-airport-expansion
+    name: "Al Maktoum International Airport expansion"
+    operator: "Dubai Aviation Engineering Projects"
+    sector: aviation
+    emirate: Dubai
+    lat: 24.9091455
+    lon: 55.1717750
+    osm: way/214188740
+    h3_res8: "8843a139c9fffff"
+    worker_count: 2000
+    shift_pattern: double_12h
+    heat_exposure: outdoor
+
+  - id: etihad-rail-package-a
+    name: "Etihad Rail Package A corridor (Ruwais–Ghuweifat)"
+    operator: "Etihad Rail"
+    sector: construction
+    emirate: Abu Dhabi
+    # Package A is the 139 km Ruwais–Ghuweifat line; the site point is placed at
+    # Al Sila, partway along the corridor.
+    lat: 24.1010068
+    lon: 51.7304986
+    osm: node/9976399347
+    h3_res8: "88534d52e3fffff"
+    worker_count: 1400
+    shift_pattern: double_12h
+    heat_exposure: outdoor
+
+  - id: masdar-city-phase-2
+    name: "Masdar City Phase 2"
+    operator: "Masdar"
+    sector: construction
+    emirate: Abu Dhabi
+    lat: 24.4274827
+    lon: 54.6234876
+    osm: way/873221060
+    h3_res8: "8843a15b27fffff"
+    worker_count: 1100
+    shift_pattern: day_only
+    heat_exposure: outdoor
+
+  - id: kizad
+    name: "Khalifa Industrial Zone Abu Dhabi (KIZAD)"
+    operator: "AD Ports Group (KEZAD)"
+    sector: industrial
+    emirate: Abu Dhabi
+    lat: 24.6882575
+    lon: 54.7360933
+    osm: way/435893048
+    h3_res8: "8843a15713fffff"
+    worker_count: 1300
+    shift_pattern: triple_8h
+    heat_exposure: indoor_hot
+
+  - id: jebel-ali-port
+    name: "Jebel Ali Port"
+    operator: "DP World"
+    sector: ports
+    emirate: Dubai
+    lat: 24.9804578
+    lon: 55.0598883
+    osm: node/4545361722
+    h3_res8: "8843a104a5fffff"
+    worker_count: 1800
+    shift_pattern: triple_8h
+    heat_exposure: mixed
+
+  - id: dubai-south-logistics
+    name: "Dubai South Logistics District"
+    operator: "Dubai South"
+    sector: logistics
+    emirate: Dubai
+    lat: 24.9089038
+    lon: 55.1108144
+    osm: way/307805557
+    h3_res8: "8843a13b39fffff"
+    worker_count: 900
+    shift_pattern: triple_8h
+    heat_exposure: indoor_cool
+
+  - id: mina-rashid
+    name: "DP World Mina Rashid"
+    operator: "DP World"
+    sector: ports
+    emirate: Dubai
+    lat: 25.2711083
+    lon: 55.2659321
+    osm: way/1148760943
+    h3_res8: "8843acd9c3fffff"
+    worker_count: 450
+    shift_pattern: double_12h
+    heat_exposure: mixed
+
+  - id: adnoc-ruwais
+    name: "ADNOC Ruwais Industrial Complex"
+    operator: "ADNOC"
+    sector: industrial
+    emirate: Abu Dhabi
+    lat: 24.0729525
+    lon: 52.6640306
+    osm: node/10739165605
+    h3_res8: "8843a691c1fffff"
+    worker_count: 1700
+    shift_pattern: double_12h
+    heat_exposure: mixed
+
+  - id: hassyan-power
+    name: "Hassyan Power Complex"
+    operator: "DEWA (Hassyan Energy Company)"
+    sector: industrial
+    emirate: Dubai
+    lat: 24.9125819
+    lon: 54.9171265
+    osm: way/1429720312
+    h3_res8: "8843a100e3fffff"
+    worker_count: 600
+    shift_pattern: triple_8h
+    heat_exposure: indoor_hot
+
+  - id: mbr-solar-park
+    name: "Mohammed bin Rashid Al Maktoum Solar Park"
+    operator: "DEWA"
+    sector: construction
+    emirate: Dubai
+    lat: 24.7315527
+    lon: 55.4665458
+    osm: relation/12163496
+    h3_res8: "8843ae9ac9fffff"
+    worker_count: 1200
+    shift_pattern: day_only
+    heat_exposure: outdoor
+
+  - id: dubai-creek-harbour
+    name: "Dubai Creek Harbour"
+    operator: "Emaar"
+    sector: construction
+    emirate: Dubai
+    lat: 25.1979780
+    lon: 55.3603796
+    osm: way/1012353010
+    h3_res8: "8843acc95dfffff"
+    worker_count: 1500
+    shift_pattern: double_12h
+    heat_exposure: outdoor
+
+  - id: expo-city-dubai
+    name: "Expo City Dubai operations"
+    operator: "Expo City Dubai Authority"
+    sector: logistics
+    emirate: Dubai
+    lat: 24.9634934
+    lon: 55.1460846
+    osm: node/8882647591
+    h3_res8: "8843a13ae5fffff"
+    worker_count: 500
+    shift_pattern: triple_8h
+    heat_exposure: mixed
+
+  - id: deira-islands
+    name: "Deira Islands reclamation"
+    operator: "Nakheel"
+    sector: construction
+    emirate: Dubai
+    lat: 25.3179174
+    lon: 55.3263177
+    osm: relation/8122161
+    h3_res8: "8843acc169fffff"
+    worker_count: 800
+    shift_pattern: double_12h
+    heat_exposure: outdoor
+
+  - id: zayed-port
+    name: "Zayed Port"
+    operator: "AD Ports Group"
+    sector: ports
+    emirate: Abu Dhabi
+    lat: 24.5243932
+    lon: 54.3799134
+    osm: relation/13251325
+    h3_res8: "8843a03537fffff"
+    worker_count: 350
+    shift_pattern: triple_8h
+    heat_exposure: mixed
+
+  - id: khalifa-port
+    name: "Khalifa Port"
+    operator: "AD Ports Group"
+    sector: ports
+    emirate: Abu Dhabi
+    lat: 24.8145215
+    lon: 54.6530610
+    osm: way/1303931592
+    h3_res8: "8843a1ce93fffff"
+    worker_count: 1600
+    shift_pattern: triple_8h
+    heat_exposure: mixed

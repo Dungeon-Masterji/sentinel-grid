@@ -55,6 +55,23 @@ jobs:
             echo "::warning::no $branch branch yet; deploying without clinical data"
           fi
 
+      - name: Build occupational data (synthetic workforce + Open-Meteo)
+        # Pulls 90 days of hourly met + CAMS particulates for the 15 sites in
+        # configs/uae_sites.yaml, regenerates the seeded synthetic workforce and
+        # copies sites / daily rollup / features parquets into the API package.
+        # Runs on every deploy (incl. the nightly dispatch from clinical-refresh),
+        # so "today" stays current. On failure the API deploys and the occupational
+        # routes return 503.
+        continue-on-error: true
+        env:
+          WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}   # optional: PM fallback only
+          TZ: UTC
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements-dev.txt
+          python -m packages.pipelines.synth.occupational_run --api-dir apps/api/data/occupational
+          ls -la apps/api/data/occupational
+
       - name: Zip API with bundled deps
         working-directory: apps/api
         run: zip -r ../../release.zip . -x "__pycache__/*" "*.pyc" "venv/*"

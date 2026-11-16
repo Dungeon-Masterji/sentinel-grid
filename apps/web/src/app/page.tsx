@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { CloudSun, HardHat, AlertTriangle, MapPin } from "lucide-react";
+import { CloudSun, AlertTriangle, MapPin } from "lucide-react";
 import { ClinicalCard } from "@/components/clinical-card";
+import { OccupationalCard } from "@/components/occupational-card";
+import { SitesSection } from "@/components/sites-section";
 import { fetcher } from "@/lib/api";
 
 type WaqiReading = {
@@ -169,18 +171,11 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Occupational</CardTitle>
-                <HardHat className="h-4 w-4 text-rose-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">wiring</div>
-                <p className="text-xs text-slate-500 mt-1">Synthetic rosters · 15 sites</p>
-              </CardContent>
-            </Card>
+            <OccupationalCard />
           </div>
         </section>
+
+        <SitesSection />
 
         <section>
           <h2 className="text-sm uppercase tracking-wider text-slate-500 mb-3">Live air quality</h2>

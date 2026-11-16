@@ -1,0 +1,165 @@
+# Workforce mix tables for the synthetic occupational roster
+# (packages/pipelines/synth/workforce.py). Every worker generated from this file is
+# SYNTHETIC — see docs/ETHICS.md. Weights are normalised at load time; they need
+# not sum to exactly 1.
+#
+# SOURCES AND HOW FAR THEY GO
+# ---------------------------
+# [ILO-2024]  ILO (Dec 2024). "ILO Global Estimates on International Migrant Workers:
+#             International migrants in the labour force", 4th ed.
+#             doi:10.54394/ESKI5420. Gives Arab States totals and sex shares for
+#             migrant workers. It does NOT give nationality or role splits per
+#             sector or country.
+# [ILO-2021]  ILO (2021). "ILO Global Estimates on International Migrant Workers",
+#             3rd ed. Arab States: ~24.1M migrant workers, 19.9M men / 4.2M women
+#             (2019 data).
+# [GLMM]      Gulf Labour Markets, Migration and Population programme (GLMM),
+#             gulfmigration.grc.net. Notes that UAE population figures broken down
+#             by nationality are not published in official sources; GLMM only
+#             estimates the Emirati / non-Emirati split.
+# [EMB]       Embassy-reported diaspora estimates (as compiled on the Wikipedia page
+#             "Demographics of the United Arab Emirates"): India ~2.75M,
+#             Pakistan ~1.27M, Bangladesh ~0.75M, Philippines ~0.56M.
+# [FCSC]      UAE Federal Competitiveness and Statistics Centre, Labour Force Survey
+#             (sector employment and sex shares).
+# [MOHRE]     UAE Ministry of Human Resources & Emiratisation, Ministerial Resolution
+#             on the annual midday work break (12:30–15:00, 15 Jun – 15 Sep).
+#
+# IMPORTANT: neither MoHRE nor FCSC publishes worker counts by nationality and role
+# for each sector. The nationality weights below are therefore MODELLED. They are
+# anchored on the relative diaspora sizes in [EMB], skewed towards the South Asian
+# workforces that dominate site work, and use the default construction mix from the
+# project brief (35/22/18/9/5/4/3/4). Role weights are engineering assumptions about
+# crew structure. Treat all of these as scenario parameters, not observed statistics.
+# ---------------------------------------------------------------------------
+
+version: 1
+# Workers' start dates are drawn backwards from this fixed date, so the roster does
+# not depend on the date the pipeline runs (reproducible for a given seed).
+roster_as_of: "2026-06-01"
+tenure_mean_years: 2.5          # exponential, capped at tenure_max_years
+tenure_max_years: 12
+
+nationality:
+  # Default construction mix from the project brief. Ordering is anchored on [EMB].
+  default:
+    Indian: 0.35
+    Pakistani: 0.22
+    Bangladeshi: 0.18
+    Nepali: 0.09
+    Filipino: 0.05
+    Egyptian: 0.04
+    Sudanese: 0.03
+    Other: 0.04
+  # Sector overrides (modelled): more Pakistani heavy-vehicle drivers in logistics,
+  # more Filipino technical and admin staff in aviation and ports.
+  by_sector:
+    construction: default
+    logistics:
+      { Indian: 0.33, Pakistani: 0.27, Bangladeshi: 0.12, Nepali: 0.10, Filipino: 0.08, Egyptian: 0.04, Sudanese: 0.02, Other: 0.04 }
+    industrial:
+      { Indian: 0.40, Pakistani: 0.18, Bangladeshi: 0.12, Nepali: 0.06, Filipino: 0.09, Egyptian: 0.06, Sudanese: 0.03, Other: 0.06 }
+    ports:
+      { Indian: 0.36, Pakistani: 0.22, Bangladeshi: 0.12, Nepali: 0.08, Filipino: 0.10, Egyptian: 0.04, Sudanese: 0.03, Other: 0.05 }
+    aviation:
+      { Indian: 0.34, Pakistani: 0.18, Bangladeshi: 0.14, Nepali: 0.08, Filipino: 0.12, Egyptian: 0.05, Sudanese: 0.03, Other: 0.06 }
+
+role:
+  # Modelled crew structure per sector (engineering assumption, not from a report).
+  construction:
+    { laborer: 0.52, foreman: 0.06, electrician: 0.10, welder: 0.09, crane_operator: 0.04, driver: 0.09, admin: 0.05, safety_officer: 0.05 }
+  logistics:
+    { laborer: 0.42, foreman: 0.06, electrician: 0.04, welder: 0.01, crane_operator: 0.07, driver: 0.28, admin: 0.09, safety_officer: 0.03 }
+  industrial:
+    { laborer: 0.35, foreman: 0.08, electrician: 0.16, welder: 0.15, crane_operator: 0.05, driver: 0.07, admin: 0.09, safety_officer: 0.05 }
+  ports:
+    { laborer: 0.40, foreman: 0.07, electrician: 0.06, welder: 0.04, crane_operator: 0.14, driver: 0.18, admin: 0.07, safety_officer: 0.04 }
+  aviation:
+    { laborer: 0.45, foreman: 0.07, electrician: 0.12, welder: 0.06, crane_operator: 0.05, driver: 0.12, admin: 0.08, safety_officer: 0.05 }
+
+age:
+  # Brief: mean 32, sd 8, truncated to 18–60 (rejection-sampled, integer years).
+  mean: 32
+  sd: 8
+  min: 18
+  max: 60
+
+gender_male_share:
+  # Site workforces are overwhelmingly male. [ILO-2021] Arab States migrant workers
+  # are ~83% male overall; site and plant roles are far more male than that
+  # (modelled, informed by [FCSC] sector shares).
+  construction: 0.99
+  logistics: 0.95
+  industrial: 0.96
+  ports: 0.96
+  aviation: 0.92
+
+ppe_baseline:
+  # Mean baseline PPE compliance by role (modelled). Each worker's baseline is drawn
+  # from Beta(mean * k, (1 - mean) * k) with concentration k, which gives a slight
+  # bias by role.
+  concentration: 40
+  by_role:
+    { laborer: 0.82, foreman: 0.90, electrician: 0.88, welder: 0.86, crane_operator: 0.89, driver: 0.84, admin: 0.93, safety_officer: 0.97 }
+
+shifts:
+  # Local (Asia/Dubai) start hour, nominal length in hours, and the share of the site
+  # roster on each shift. Each worker keeps one shift and one weekly rest day.
+  double_12h:
+    morning: { start_hour: 6,  hours: 12, share: 0.60 }
+    night:   { start_hour: 18, hours: 12, share: 0.40 }
+  triple_8h:
+    morning: { start_hour: 6,  hours: 8, share: 0.40 }
+    evening: { start_hour: 14, hours: 8, share: 0.35 }
+    night:   { start_hour: 22, hours: 8, share: 0.25 }
+  day_only:
+    morning: { start_hour: 6,  hours: 8, share: 0.70 }
+    midday:  { start_hour: 10, hours: 8, share: 0.30 }
+
+midday_break:
+  # [MOHRE] Outdoor work stops 12:30–15:00 between 15 Jun and 15 Sep. In the model,
+  # outdoor and mixed shifts that span the window lose 2.5 scheduled hours, and the
+  # window is excluded from the shift's heat exposure.
+  start: "06-15"
+  end: "09-15"
+  from_hour: 12.5
+  to_hour: 15.0
+  applies_to: [outdoor, mixed]
+
+absence_model:
+  # Implements the brief's absence equations. The brief writes
+  #     p_heat = logistic(0.02 + 0.08*(AT-38)_+ + 0.03*(pm25-75)_+/10)
+  # Read literally, logistic(0.02) = 0.505, i.e. a 50% absence floor, which contradicts
+  # the brief's own 2% baseline. So the intercept is read as a base PROBABILITY and the
+  # slopes as LOG-ODDS per unit:
+  #     p_heat = logistic(logit(0.02) + 0.08*(AT-38)_+ + 0.03*(pm25-75)_+/10)
+  # gated: p_heat = 0 while no excess term is positive (no heat-coded absences in
+  # mild weather). The same applies to the respiratory equation. Set gated: false to
+  # make the intercepts apply all year.
+  #
+  # AT = peak apparent temperature over the worked hours of the shift (°C).
+  # pm25 / pm10 = mean over the shift (µg/m³).
+  gated: true
+  baseline:                 # "none-reason" (non-environmental) baseline = 2% in total
+    family: 0.010
+    other: 0.007
+    injury: 0.003
+  heat:
+    intercept_prob: 0.02
+    apparent_temp_threshold: 38
+    apparent_temp_slope: 0.08          # log-odds per °C above threshold
+    pm25_threshold: 75
+    pm25_slope_per_10: 0.03            # log-odds per 10 µg/m³ above threshold
+    exposures: [outdoor, mixed]
+  respiratory:
+    intercept_prob: 0.01
+    pm25_threshold: 55
+    pm25_slope_per_10: 0.04
+    pm10_threshold: 100
+    pm10_slope_per_20: 0.02
+  ppe:
+    apparent_temp_threshold: 42
+    drop_per_10c: 0.15                 # compliance -= 0.15 * (AT-42)_+ / 10
+    noise_sd: 0.02
+    # indoor_cool sites are climate-controlled, so outdoor AT does not degrade PPE.
+    exposures: [outdoor, mixed, indoor_hot]
