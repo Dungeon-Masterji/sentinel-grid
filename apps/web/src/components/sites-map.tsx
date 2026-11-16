@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import maplibregl from "maplibre-gl";
 import Map, { Marker, NavigationControl, Popup } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TIER, pct, type SiteStatus } from "@/lib/occupational";
 
-// Free CARTO vector basemap (no API key).
-const STYLE = `https://api.maptiler.com/maps/dataviz-light/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`;
+const STYLE = "https://api.maptiler.com/maps/dataviz-light/style.json?key=5sXuSxvFqLtJvmh5bokl";
 
 export default function SitesMap({ sites }: { sites: SiteStatus[] }) {
   const [selected, setSelected] = useState<SiteStatus | null>(null);
+
+  // Next.js 16 + MapLibre: pre-warm the worker class so the bundler resolves it
+  useEffect(() => {
+    // @ts-expect-error — MapLibre's workerClass is not in the type defs
+    if (typeof window !== "undefined" && !maplibregl.workerClass) {
+      // @ts-expect-error — not in the type defs (see above)
+      maplibregl.workerClass = null;
+    }
+  }, []);
 
   return (
     <div className="relative h-[440px] w-full overflow-hidden rounded-xl ring-1 ring-foreground/10">
