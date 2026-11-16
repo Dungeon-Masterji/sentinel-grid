@@ -1,0 +1,137 @@
+# Tri-signal fusion scenarios (packages/pipelines/fusion).
+#
+# Each scenario fuses per-signal anomaly scores (0–1, from Prophet residuals scored by
+# a PyOD IForest/ECOD/LOF ensemble) with weights, via a Beta(2,2)-prior Bayesian
+# pool (combine.py). The posterior mean is the "fused score" that thresholds into
+# watch / advisory / warning.
+#
+# Threshold calibration (2026-11-17, 90 days to that date, 15 site hexes, MAP mode):
+# thresholds sit at roughly the 97th / 99.3rd / 99.85th percentiles of eligible hex-hour
+# fused scores, i.e. an alert budget of ~3% / 0.7% / 0.15% of hex-hours. The pillars
+# rarely co-move in this data, so the learned disagreement scale is wide and quiet
+# hours sit near 0.3 (the prior pulls towards 0.5). Read the score as a ranking, and
+# re-calibrate after model changes. Every alert stores per-signal contributions
+# (weight × score, normalised to 100%), so every alert can be explained.
+#
+# Signals are defined once in `signals:` and shared across scenarios: each unique
+# signal gets exactly one baseline + one detector (fit_all does not refit duplicates).
+version: 1
+
+spatial:
+  h3_res: 7                       # common fusion grid
+  min_records: 5                  # small-cell suppression inside aggregate_to_h3 (hard rule)
+  min_workers_for_alert: 3        # alert eligibility (see alerts.py)
+  min_clinical_for_alert: 5
+  clinical_catchment_min_population: 500000   # site hex -> nearest city of this size
+  history_days: 90
+
+fusion:
+  mode: map                       # map | sampled (PyMC NUTS; slow, for offline use)
+  prior: [2, 2]                   # Beta prior on P(scenario firing at t)
+  min_coverage: 0.4               # fraction of scenario weight that must be observed
+  dedupe_window_hours: 6          # one alert per scenario per hex per window
+
+detector:
+  center: 2.0                     # sigmoid(slope * (median_std_score - center))
+  slope: 1.5
+  contamination: 0.02
+  max_train_rows: 8000
+  lof_neighbors: 50
+  random_state: 42
+
+baseline:
+  seasonality: [daily, weekly]
+  min_history_days: 30
+  rolling_window_days: 30
+  refit_after_hours: 24           # reuse cached models younger than this (never from the future)
+
+# ---------------------------------------------------------------------------
+# Signal registry. pillar: env | occ | clin.
+#   floor: scores are 0 while the raw value is below this (physical hazard gate,
+#          e.g. a "warm for November" 31 °C is not heat stress).
+#   min_std: floor on per-hex std when z-scoring (stops near-zero count series from
+#          turning a single event into an infinite z).
+# All drivers are upper-tail: only above-baseline residuals score.
+# ---------------------------------------------------------------------------
+signals:
+  apparent_temp:        { pillar: env,  unit: "°C",    floor: 38 }
+  pm25:                 { pillar: env,  unit: "µg/m³", floor: 35 }
+  pm10:                 { pillar: env,  unit: "µg/m³", floor: 100 }
+  absence_rate:         { pillar: occ,  unit: "rate",  min_std: 0.005 }
+  respiratory_absence_rate: { pillar: occ, unit: "rate", min_std: 0.003 }
+  heat_related_encounter_count: { pillar: clin, unit: "encounters/24h", min_std: 1.0 }
+  respiratory_encounter_count:  { pillar: clin, unit: "encounters/24h", min_std: 1.0 }
+  any_encounter_count:          { pillar: clin, unit: "encounters/24h", min_std: 2.0 }
+  fever_encounter_count:        { pillar: clin, unit: "encounters/24h", min_std: 1.0 }
+
+scenarios:
+  - id: heat-stress-cluster
+    label: Heat-stress cluster
+    description: >
+      Dangerous apparent temperature coinciding with rising worker absence and
+      heat-related clinical presentations (dehydration, rhabdomyolysis, electrolyte
+      disorders) in the site's clinical catchment.
+    signals:
+      - { name: apparent_temp, weight: 0.45 }
+      - { name: absence_rate, weight: 0.35 }
+      - { name: heat_related_encounter_count, weight: 0.20 }
+    thresholds: { watch: 0.45, advisory: 0.51, warning: 0.56 }
+    action_owner: site supervisor
+    escalation_owner: MoHRE inspector
+    recommended_actions:
+      watch:
+        - Enforce water and shade breaks every 30 minutes at all outdoor work faces.
+        - Brief crews on heat-illness symptoms and buddy checks.
+      advisory:
+        - Move heavy outdoor tasks before 10:00 or after 16:00.
+        - Put a first-aider with cooling kit on standby on site.
+      warning:
+        - Stop non-essential outdoor work until apparent temperature falls below 38 °C.
+        - Notify the MoHRE inspector and the site medical provider; log heat-illness cases.
+
+  - id: respiratory-dust-event
+    label: Respiratory / dust event
+    description: >
+      Elevated particulates (PM2.5 / PM10, typically a dust or haze event) with a rise
+      in respiratory encounters and respiratory-coded worker absence.
+    signals:
+      - { name: pm25, weight: 0.40 }
+      - { name: pm10, weight: 0.20 }
+      - { name: respiratory_encounter_count, weight: 0.30 }
+      - { name: respiratory_absence_rate, weight: 0.10 }
+    thresholds: { watch: 0.47, advisory: 0.59, warning: 0.68 }
+    action_owner: school authority
+    escalation_owner: DoH surveillance
+    recommended_actions:
+      watch:
+        - Move outdoor PE and break-time activities indoors for sensitive groups.
+        - Issue FFP2 masks to outdoor site crews.
+      advisory:
+        - Suspend outdoor school activities; keep windows closed and HVAC on recirculate.
+        - Prioritise asthma/COPD patients for follow-up in affected catchments.
+      warning:
+        - Suspend all outdoor school activities and non-essential outdoor work.
+        - Alert DoH surveillance; prepare emergency departments for a respiratory surge.
+
+  - id: infectious-cluster-signal
+    label: Infectious cluster signal
+    description: >
+      Unusual rise in all-cause encounters and fever-coded presentations in a catchment,
+      corroborated by a spike in workforce absence: an early hint of a communicable
+      disease cluster.
+    signals:
+      - { name: any_encounter_count, weight: 0.60 }
+      - { name: fever_encounter_count, weight: 0.30 }
+      - { name: absence_rate, weight: 0.10 }     # "workforce_absence spike": same signal, reused
+    thresholds: { watch: 0.45, advisory: 0.53, warning: 0.56 }
+    action_owner: DoH surveillance
+    escalation_owner: DoH surveillance
+    recommended_actions:
+      watch:
+        - Review syndromic line lists for the catchment; check for common exposure sites.
+      advisory:
+        - Request site clinics to report febrile workers daily; reinforce hand hygiene and
+          shared-accommodation ventilation.
+      warning:
+        - Open a DoH cluster investigation; arrange targeted testing at affected sites and
+          labour accommodation.

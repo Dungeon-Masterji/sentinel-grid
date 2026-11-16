@@ -6,7 +6,7 @@ import Map, { Marker, NavigationControl, Popup } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TIER, pct, type SiteStatus } from "@/lib/occupational";
 
-const STYLE = "https://api.maptiler.com/maps/dataviz-light/style.json?key=5sXuSxvFqLtJvmh5bokl";
+export const STYLE = "https://api.maptiler.com/maps/dataviz-light/style.json?key=5sXuSxvFqLtJvmh5bokl";
 
 export default function SitesMap({ sites }: { sites: SiteStatus[] }) {
   const [selected, setSelected] = useState<SiteStatus | null>(null);

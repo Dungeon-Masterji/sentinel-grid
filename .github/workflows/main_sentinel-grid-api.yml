@@ -55,6 +55,22 @@ jobs:
             echo "::warning::no $branch branch yet; deploying without clinical data"
           fi
 
+      - name: Pull alert files from data branch
+        # Written every 15 min by alert-refresh.yml. The API also re-pulls them itself
+        # (TTL / POST /api/alerts/refresh); this copy just seeds a fresh deploy.
+        run: |
+          set -euo pipefail
+          branch=data/processed/alerts
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            git fetch --depth 1 origin "$branch"
+            mkdir -p apps/api/data/alerts
+            for f in active.parquet signal_traces.parquet fused_traces.parquet units.parquet meta.json; do
+              git show "FETCH_HEAD:data/processed/alerts/$f" > "apps/api/data/alerts/$f"
+            done
+          else
+            echo "::warning::no $branch branch yet; deploying without alerts"
+          fi
+
       - name: Build occupational data (synthetic workforce + Open-Meteo)
         # Pulls 90 days of hourly met + CAMS particulates for the 15 sites in
         # configs/uae_sites.yaml, regenerates the seeded synthetic workforce and

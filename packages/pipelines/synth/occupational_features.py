@@ -14,6 +14,8 @@ into one frame keyed by (site_id, ts_utc) with columns:
     workers_on_site                  present workers whose shift covers this hour
     scheduled_on_site                workers rostered for a shift covering this hour
     absence_rate_last_1h             1 - workers_on_site / scheduled_on_site
+    heat_absence_rate_last_1h        heat-coded absences / scheduled_on_site
+    respiratory_absence_rate_last_1h respiratory-coded absences / scheduled_on_site
     ppe_compliance                   mean PPE compliance of present workers this hour
     heat_exposure, shift_type        dominant shift (most scheduled workers) this hour
     roster_size                      site headcount from the roster
@@ -39,27 +41,32 @@ ENV_PATH = REPO_ROOT / "data" / "processed" / "env" / "site_hourly.parquet"
 FEATURES_PATH = REPO_ROOT / "data" / "processed" / "features" / "occupational.parquet"
 FEATURE_COLUMNS = ["site_id", "ts_utc", "date", "hour", "apparent_temp", "pm25", "pm10",
                    "workers_on_site", "scheduled_on_site", "absence_rate_last_1h",
+                   "heat_absence_rate_last_1h", "respiratory_absence_rate_last_1h",
                    "ppe_compliance", "heat_exposure", "shift_type", "roster_size",
                    "day_absence_rate"]
 
 
 def shift_hours_frame(shift_log: pd.DataFrame, shift_lengths: dict[str, int]) -> pd.DataFrame:
     """Expand per-shift aggregates to one row per (site, hour, shift_type)."""
-    present = (shift_log["absence_reason"].astype(str) == "none")
+    reason = shift_log["absence_reason"].astype(str)
+    present = (reason == "none")
     agg = (pd.DataFrame({
         "site_id": shift_log["site_id"].astype(str),
         "shift_start_utc": shift_log["shift_start_utc"],
         "shift_type": shift_log["shift_type"].astype(str),
         "present": present.to_numpy(),
+        "heat": (reason == "heat").to_numpy(),
+        "resp": (reason == "respiratory").to_numpy(),
         "ppe": shift_log["ppe_compliance_actual"].astype(float).fillna(0.0),
     }).groupby(["site_id", "shift_start_utc", "shift_type"], sort=False)
-      .agg(scheduled=("present", "size"), present=("present", "sum"), ppe_sum=("ppe", "sum"))
+      .agg(scheduled=("present", "size"), present=("present", "sum"), heat=("heat", "sum"),
+           resp=("resp", "sum"), ppe_sum=("ppe", "sum"))
       .reset_index())
     agg["len"] = agg["shift_type"].map(shift_lengths).fillna(8).astype(int)
     rep = agg.loc[agg.index.repeat(agg["len"])].copy()
     rep["k"] = rep.groupby(level=0).cumcount()
     rep["ts_utc"] = rep["shift_start_utc"] + pd.to_timedelta(rep["k"], unit="h")
-    return rep[["site_id", "ts_utc", "shift_type", "scheduled", "present", "ppe_sum"]]
+    return rep[["site_id", "ts_utc", "shift_type", "scheduled", "present", "heat", "resp", "ppe_sum"]]
 
 
 def build_feature_frame(site_hourly: pd.DataFrame | None = None,
@@ -94,6 +101,7 @@ def build_feature_frame(site_hourly: pd.DataFrame | None = None,
 
     per_hour = (sh.groupby(["site_id", "ts_utc"])
                   .agg(scheduled_on_site=("scheduled", "sum"), workers_on_site=("present", "sum"),
+                       heat_absent=("heat", "sum"), resp_absent=("resp", "sum"),
                        ppe_sum=("ppe_sum", "sum")).reset_index())
     dominant = (sh.sort_values(["site_id", "ts_utc", "scheduled"], ascending=[True, True, False])
                   .drop_duplicates(["site_id", "ts_utc"])[["site_id", "ts_utc", "shift_type"]])
@@ -108,6 +116,9 @@ def build_feature_frame(site_hourly: pd.DataFrame | None = None,
         df["absence_rate_last_1h"] = np.where(
             df["scheduled_on_site"] > 0,
             1.0 - df["workers_on_site"] / df["scheduled_on_site"].replace(0, np.nan), np.nan)
+        sched = df["scheduled_on_site"].replace(0, np.nan)
+        df["heat_absence_rate_last_1h"] = (df["heat_absent"] / sched).round(5)
+        df["respiratory_absence_rate_last_1h"] = (df["resp_absent"] / sched).round(5)
         df["ppe_compliance"] = np.where(df["workers_on_site"] > 0,
                                         df["ppe_sum"] / df["workers_on_site"].replace(0, np.nan),
                                         np.nan)

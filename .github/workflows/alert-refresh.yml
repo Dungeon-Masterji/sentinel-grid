@@ -1,0 +1,116 @@
+# Tri-signal alert refresh (fusion detector), every 15 minutes.
+#
+# 1. Pull the latest clinical parquets (data/processed/clinical branch, nightly Synthea).
+# 2. Refresh environmental + synthetic occupational data (Open-Meteo / CAMS, seeded).
+# 3. Run packages.pipelines.fusion.alerts as of now: Prophet baselines + PyOD detectors
+#    (cached across runs; refit when older than 24 h) + Bayesian fusion (MAP).
+# 4. Force-push the outputs as a single orphan commit to branch `data/processed/alerts`.
+# 5. Ping POST /api/alerts/refresh (X-Refresh-Secret) so Azure re-pulls immediately;
+#    otherwise the API re-pulls on its own every 10 minutes.
+name: Alert refresh (fusion, every 15 min)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: "Replay time (ISO-8601, UTC). Empty = now"
+        default: ""
+      mode:
+        description: "Fusion mode"
+        default: "map"
+        type: choice
+        options: [map, sampled]
+
+permissions:
+  contents: write   # push the data branch
+
+concurrency:
+  group: alert-refresh
+  cancel-in-progress: false
+
+env:
+  DATA_BRANCH: data/processed/alerts
+  API_BASE: https://sentinel-grid-api.azurewebsites.net
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-fusion.txt
+
+      - name: Install fusion deps
+        run: python -m pip install -r requirements-fusion.txt
+
+      - name: Pull clinical parquets
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 origin data/processed/clinical
+          mkdir -p data/processed/clinical
+          for f in events.parquet patients.parquet; do
+            git show "FETCH_HEAD:data/processed/clinical/$f" > "data/processed/clinical/$f"
+          done
+
+      - name: Cache key (UTC day)
+        id: day
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore model cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/baselines
+          key: baselines-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**') }}-${{ steps.day.outputs.day }}
+          restore-keys: |
+            baselines-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**') }}-
+
+      - name: Refresh environmental + occupational signals
+        env:
+          WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}
+        run: python -m packages.pipelines.synth.occupational_run
+
+      - name: Generate alerts
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${{ inputs.as_of }}" ]; then args+=(--as-of "${{ inputs.as_of }}"); fi
+          if [ -n "${{ inputs.mode }}" ]; then args+=(--mode "${{ inputs.mode }}"); fi
+          start=$(date +%s)
+          python -m packages.pipelines.fusion.alerts "${args[@]}"
+          echo "fusion wall time: $(( $(date +%s) - start ))s"
+          cat data/processed/alerts/meta.json
+
+      - name: Publish to data branch
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          git checkout --orphan alerts-data-tmp
+          git rm -rq --cached .
+          git add -f data/processed/alerts/active.parquet \
+                     data/processed/alerts/signal_traces.parquet \
+                     data/processed/alerts/fused_traces.parquet \
+                     data/processed/alerts/units.parquet \
+                     data/processed/alerts/meta.json
+          git commit -qm "data: alerts ${stamp}"
+          git push --force origin "HEAD:refs/heads/${DATA_BRANCH}"
+
+      - name: Notify API
+        continue-on-error: true
+        env:
+          SECRET: ${{ secrets.ALERTS_REFRESH_SECRET }}
+        run: |
+          if [ -z "$SECRET" ]; then echo "::notice::ALERTS_REFRESH_SECRET not set; API will re-pull on its TTL"; exit 0; fi
+          curl -fsS -m 60 -X POST -H "X-Refresh-Secret: $SECRET" "$API_BASE/api/alerts/refresh"

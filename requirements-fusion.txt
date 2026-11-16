@@ -1,0 +1,7 @@
+# Fusion detector (packages/pipelines/fusion) — used by .github/workflows/alert-refresh.yml
+# and local development. Not deployed to Azure: the API only reads the parquet output.
+-r requirements-dev.txt
+scipy==1.17.1
+prophet==1.5.0
+pyod==3.6.7
+pymc==5.28.5        # mode: sampled only; map mode needs scipy alone

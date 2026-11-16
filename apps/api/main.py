@@ -5,7 +5,7 @@ from routers import health, signals, alerts, clinical, occupational
 app = FastAPI(
     title="Sentinel Grid API",
     description="Tri-signal early warning — clinical + environmental + occupational",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 app.add_middleware(
@@ -24,4 +24,4 @@ app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "sentinel-grid-api", "build_marker": "occupational-v1"}
+    return {"status": "ok", "service": "sentinel-grid-api", "build_marker": "fusion-v1"}

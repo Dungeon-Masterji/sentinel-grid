@@ -3,12 +3,12 @@
 import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { CloudSun, AlertTriangle, MapPin } from "lucide-react";
+import { CloudSun, MapPin } from "lucide-react";
 import { ClinicalCard } from "@/components/clinical-card";
 import { OccupationalCard } from "@/components/occupational-card";
 import { SitesSection } from "@/components/sites-section";
+import { AlertsPanel } from "@/components/alerts/alerts-panel";
 import { fetcher } from "@/lib/api";
 
 type WaqiReading = {
@@ -24,18 +24,6 @@ type WaqiReading = {
   time: string;
   coords: [number, number];
 };
-
-type AlertItem = {
-  id: string;
-  severity: "watch" | "advisory" | "warning";
-  scenario: string;
-  location: string;
-  drivers: Record<string, number>;
-  recommended_action: string;
-  owner: string;
-};
-
-type AlertsResponse = { alerts: AlertItem[] };
 
 function aqiBand(aqi: number | null) {
   if (aqi == null) return { label: "—", tone: "bg-slate-200 text-slate-700" };
@@ -97,44 +85,6 @@ function StationCard({ city, lat, lon }: { city: string; lat: number; lon: numbe
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function AlertsPanel() {
-  const { data, error, isLoading } = useSWR<AlertsResponse>("/api/alerts", fetcher, {
-    refreshInterval: 30_000,
-  });
-
-  if (isLoading) return <div className="text-sm text-slate-500">Loading alerts…</div>;
-  if (error) return <div className="text-sm text-rose-600">Alert feed unreachable</div>;
-  if (!data?.alerts?.length) return <div className="text-sm text-slate-500">No active alerts.</div>;
-
-  return (
-    <div className="space-y-3">
-      {data.alerts.map((a) => (
-        <Alert key={a.id}>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle className="flex items-center gap-2">
-            <Badge variant="outline" className="uppercase text-[10px]">{a.severity}</Badge>
-            <span>{a.scenario}</span>
-            <span className="text-slate-500 font-normal">· {a.location}</span>
-          </AlertTitle>
-          <AlertDescription>
-            <div className="mt-2 text-sm">{a.recommended_action}</div>
-            <div className="mt-2 text-xs text-slate-500">
-              Owner: <span className="font-medium">{a.owner}</span>
-              {"  ·  "}
-              Drivers:{" "}
-              {Object.entries(a.drivers).map(([k, v], i, arr) => (
-                <span key={k}>
-                  {k} {(v * 100).toFixed(0)}%{i < arr.length - 1 ? ", " : ""}
-                </span>
-              ))}
-            </div>
-          </AlertDescription>
-        </Alert>
-      ))}
-    </div>
   );
 }
 
