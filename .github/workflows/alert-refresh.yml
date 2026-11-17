@@ -69,14 +69,15 @@ jobs:
         run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       - name: Restore model cache
+        # Keyed on code + config + the clinical parquets: a new Synthea snapshot refits everything.
         uses: actions/cache@v4
         with:
           path: |
             data/processed/baselines
             data/processed/explain
-          key: models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-${{ steps.day.outputs.day }}
+          key: models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-${{ hashFiles('data/processed/clinical/*.parquet') }}-${{ steps.day.outputs.day }}
           restore-keys: |
-            models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-
+            models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-${{ hashFiles('data/processed/clinical/*.parquet') }}-
 
       - name: Refresh environmental + occupational signals
         env:
