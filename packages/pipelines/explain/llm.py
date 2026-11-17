@@ -271,7 +271,7 @@ def fallback_action(alert: dict, scenario: dict, ncfg: dict | None = None) -> di
 def recommend_action(alert_dict: dict, scenario_config: dict, *, narrative: str | None = None,
                      budget: AlertBudget | None = None, state: RunState | None = None,
                      cache: NarrationCache | None = None, ncfg: dict | None = None,
-                     force: bool = False) -> dict:
+                     force: bool = False, consistency_note: str | None = None) -> dict:
     """Structured action dict (RecommendedAction fields + source + model). Never raises:
     malformed output is retried once with a tightened prompt, then the scenario's
     recommended_actions[severity] is used."""
@@ -287,7 +287,8 @@ def recommend_action(alert_dict: dict, scenario_config: dict, *, narrative: str 
     model = model_en()
     for tightened in (False, True):
         try:
-            r = state.call(build_action_prompt(alert_dict, scenario_config, narrative, tightened),
+            r = state.call(build_action_prompt(alert_dict, scenario_config, narrative, tightened,
+                                               consistency_note),
                            budget=budget, kind="action", model=model, temperature=0.2,
                            json_mode=True)
             act = parse_action(r.text, scenario_config, alert_dict.get("severity"))
@@ -301,6 +302,51 @@ def recommend_action(alert_dict: dict, scenario_config: dict, *, narrative: str 
         state.cache.put_action(key, out)
         return out
     return fallback_action(alert_dict, scenario_config, ncfg)
+
+
+# ---------------------------------------------------------------------------------------
+# narration <-> action consistency
+# ---------------------------------------------------------------------------------------
+_URGENT = re.compile(r"\b(immediate\w*|now|right away)\b", re.I)
+
+
+def urgency_phrase(text: str | None) -> str | None:
+    m = _URGENT.search(text or "")
+    return m.group(0) if m else None
+
+
+def reconcile_action(alert: dict, scenario: dict, action: dict, *, budget: AlertBudget,
+                     state: RunState) -> tuple[dict, str]:
+    """If the narration sounds urgent ("immediate", "now", "right away") but the action's
+    time_window is not "immediate", regenerate the action ONCE with the narration and the
+    mismatch spelled out in the prompt. Returns (action, status) where status is one of
+    ok | regenerated | mismatch | skipped.
+
+    The regenerated action still passes parse_action, so a watch/advisory can never become
+    "immediate" (SEVERITY_WINDOWS): for those, the retry usually re-words the action
+    without the urgency, and a remaining gap is reported as "mismatch". A failed or
+    non-LLM retry never replaces a valid action. The outcome is cached with the action
+    (consistency field), so a cached mismatch is not re-litigated every 15 minutes."""
+    if action.get("consistency"):
+        return action, action["consistency"]
+    phrase = urgency_phrase(alert.get("explanation_en"))
+    if alert.get("explanation_source") != "llm" or not phrase or action["time_window"] == "immediate":
+        return action, "ok"
+    if state.offline or action.get("source") != "llm":
+        return action, "skipped"
+    note = (f"the narrative tells the owner to act '{phrase}', but the time_window you chose "
+            f"was {action['time_window']}. Re-read the narrative and return an action whose "
+            "time_window and wording agree with it, within the allowed values above.")
+    retry = recommend_action(alert, scenario, narrative=alert["explanation_en"], budget=budget,
+                             state=state, ncfg=state.ncfg, force=True, consistency_note=note)
+    key = f"{PROMPT_VERSION}|{alert['scenario_id']}|{alert['h3_cell']}|{alert.get('severity')}"
+    if retry.get("source") != "llm":
+        out, status = {**action, "consistency": "mismatch"}, "mismatch"
+    else:
+        status = "regenerated" if retry["time_window"] == "immediate" else "mismatch"
+        out = {**retry, "consistency": status}
+    state.cache.put_action(key, out)
+    return out, status
 
 
 # ---------------------------------------------------------------------------------------
@@ -333,8 +379,10 @@ def enrich_alert(alert: dict, scenario: dict, *, state: RunState, force: bool = 
     alert["explanation_ar"] = ar or narrate_alert_template_ar(alert)
     alert["explanation_ar_source"] = "llm" if ar else "template_fallback"
 
-    alert["action"] = recommend_action(alert, scenario, narrative=alert["explanation_en"],
-                                       budget=budget, state=state, ncfg=ncfg, force=force)
+    action = recommend_action(alert, scenario, narrative=alert["explanation_en"],
+                              budget=budget, state=state, ncfg=ncfg, force=force)
+    alert["action"], meta["action_consistency"] = reconcile_action(alert, scenario, action,
+                                                                   budget=budget, state=state)
     meta["completion_budget_left"] = budget.left
     meta["tokens"] = budget.used
     meta["generated_at"] = state.cache.now().astimezone(timezone.utc).isoformat(timespec="seconds")

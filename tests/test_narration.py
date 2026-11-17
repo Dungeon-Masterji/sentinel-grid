@@ -317,3 +317,54 @@ def test_narrate_caches_by_alert_and_prompt(cache, monkeypatch):
                                   cache=cache, session=FakeSession([FakeResp(500)] * 4),
                                   sleep=lambda _: None)
     assert out["text"] == "TEMPLATE" and out["source"] == "template_fallback"
+
+
+# ---------------------------------------------------------------------------------------
+# narration <-> action consistency
+# ---------------------------------------------------------------------------------------
+URGENT_EN = GOOD_EN.replace("within the next hour", "right away")
+WARN_ACTION = lambda tw: json.dumps({"owner_role": "operations_manager", "time_window": tw,  # noqa: E731
+                                     "specific_action": "Stop non-essential outdoor work.",
+                                     "escalation_if_no_ack_in_minutes": 15})
+
+
+def test_consistent_narration_needs_no_regeneration(cache, monkeypatch):
+    fake = FakeLLM(narration=[GOOD_EN], arabic=[GOOD_AR], action=[GOOD_ACTION])
+    a, _ = run(heat_alert(), fake, cache, monkeypatch)
+    assert fake.kinds().count("action") == 1
+    assert a["narration"]["action_consistency"] == "ok"
+
+
+def test_urgent_narration_regenerates_action_once(cache, monkeypatch):
+    fake = FakeLLM(narration=[URGENT_EN], arabic=[GOOD_AR],
+                   action=[WARN_ACTION("within_1h"), WARN_ACTION("immediate")])
+    a, _ = run(heat_alert(severity="warning"), fake, cache, monkeypatch,
+               cfg={**CFG, "narration": {"per_alert_token_budget": 2000}})
+    assert fake.kinds() == ["narration", "arabic", "action", "action"]
+    retry_prompt = fake.calls[-1]["messages"][-1]["content"]
+    assert "Consistency check" in retry_prompt and "'right away'" in retry_prompt
+    assert URGENT_EN in retry_prompt                       # narration appended
+    assert a["action"]["time_window"] == "immediate"
+    assert a["narration"]["action_consistency"] == "regenerated"
+    # cached with its outcome: the next run neither re-asks nor re-checks
+    again = FakeLLM()
+    b, _ = run(heat_alert(severity="warning"), again, cache, monkeypatch)
+    assert again.calls == [] and b["action"]["time_window"] == "immediate"
+
+
+def test_failed_regeneration_keeps_original_and_flags_mismatch(cache, monkeypatch):
+    # advisory can never be "immediate": the retry is rejected, the original action stays
+    fake = FakeLLM(narration=[URGENT_EN], arabic=[GOOD_AR],
+                   action=[GOOD_ACTION, GOOD_ACTION.replace("within_1h", "immediate"), "junk"])
+    a, _ = run(heat_alert(), fake, cache, monkeypatch,
+               cfg={**CFG, "narration": {"per_alert_token_budget": 2000}})
+    assert fake.kinds().count("action") == 3               # first + one regeneration (2 tries)
+    assert a["action"]["source"] == "llm" and a["action"]["time_window"] == "within_1h"
+    assert a["narration"]["action_consistency"] == "mismatch"
+
+
+def test_urgency_words():
+    assert L.urgency_phrase("Act immediately.") == "immediately"
+    assert L.urgency_phrase("Do it right away") == "right away"
+    assert L.urgency_phrase("Issue masks now.") == "now"
+    assert L.urgency_phrase("A known issue, nowhere near.") is None

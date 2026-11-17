@@ -197,7 +197,7 @@ def build_translation_prompt(english_text: str, strict: bool = False) -> list[di
 
 
 def build_action_prompt(alert_dict: dict, scenario_config: dict, narrative: str | None,
-                        tightened: bool = False) -> list[dict]:
+                        tightened: bool = False, consistency_note: str | None = None) -> list[dict]:
     valid = valid_owner_roles(scenario_config)
     sev = alert_dict.get("severity", "watch")
     windows = list(SEVERITY_WINDOWS.get(sev, TIME_WINDOWS))
@@ -221,4 +221,6 @@ def build_action_prompt(alert_dict: dict, scenario_config: dict, narrative: str 
     user = format_facts(alert_facts(alert_dict, scenario_config))
     if narrative:
         user += f"\n\nAlert narrative:\n{narrative}"
+    if consistency_note:
+        user += f"\n\nConsistency check: {consistency_note}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
