@@ -4,7 +4,11 @@
 # 2. Refresh environmental + synthetic occupational data (Open-Meteo / CAMS, seeded).
 # 3. Run packages.pipelines.fusion.alerts as of now: Prophet baselines + PyOD detectors
 #    (cached across runs; refit when older than 24 h) + Bayesian fusion (MAP) + SHAP
-#    drivers from LightGBM surrogates (cached; refit when the window moves > 12 h).
+#    drivers from LightGBM surrogates (cached; refit when the window moves > 12 h)
+#    + Groq LLM narration / Arabic / structured action per alert (template fallback).
+#    The narration cache (narration_cache.sqlite: texts + today's token spend) rides on
+#    the data branch, because actions/cache only saves once per key (per day here) and
+#    every run must see the previous run's cache to stay inside the free-tier budget.
 # 4. Force-push the outputs as a single orphan commit to branch `data/processed/alerts`.
 # 5. Ping POST /api/alerts/refresh (X-Refresh-Secret) so Azure re-pulls immediately;
 #    otherwise the API re-pulls on its own every 10 minutes.
@@ -75,9 +79,20 @@ jobs:
           path: |
             data/processed/baselines
             data/processed/explain
-          key: models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-${{ hashFiles('data/processed/clinical/*.parquet') }}-${{ steps.day.outputs.day }}
+          key: models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/shap_runner.py') }}-${{ hashFiles('data/processed/clinical/*.parquet') }}-${{ steps.day.outputs.day }}
           restore-keys: |
-            models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-${{ hashFiles('data/processed/clinical/*.parquet') }}-
+            models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/shap_runner.py') }}-${{ hashFiles('data/processed/clinical/*.parquet') }}-
+
+      - name: Restore narration cache from data branch
+        run: |
+          mkdir -p data/processed/explain
+          if git fetch --depth 1 origin "$DATA_BRANCH" 2>/dev/null \
+             && git cat-file -e FETCH_HEAD:data/processed/alerts/narration_cache.sqlite 2>/dev/null; then
+            git show FETCH_HEAD:data/processed/alerts/narration_cache.sqlite > data/processed/explain/narration_cache.sqlite
+            ls -la data/processed/explain/narration_cache.sqlite
+          else
+            echo "::notice::no narration cache on $DATA_BRANCH yet; starting fresh"
+          fi
 
       - name: Refresh environmental + occupational signals
         env:
@@ -85,6 +100,10 @@ jobs:
         run: python -m packages.pipelines.synth.occupational_run
 
       - name: Generate alerts
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}     # unset => template narration
+          GROQ_MODEL: openai/gpt-oss-120b
+          GROQ_MODEL_AR: allam-2-7b
         run: |
           set -euo pipefail
           args=()
@@ -101,6 +120,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cp data/processed/explain/narration_cache.sqlite data/processed/alerts/ 2>/dev/null || true
           git checkout --orphan alerts-data-tmp
           git rm -rq --cached .
           git add -f data/processed/alerts/active.parquet \
@@ -108,6 +128,7 @@ jobs:
                      data/processed/alerts/fused_traces.parquet \
                      data/processed/alerts/units.parquet \
                      data/processed/alerts/meta.json
+          [ -f data/processed/alerts/narration_cache.sqlite ] && git add -f data/processed/alerts/narration_cache.sqlite
           git commit -qm "data: alerts ${stamp}"
           git push --force origin "HEAD:refs/heads/${DATA_BRANCH}"
 

@@ -1,0 +1,312 @@
+{
+  "_comment": "Few-shot examples for prompts.build_alert_narration_prompt: 2 per scenario. Invented sites and numbers; facts are rendered with prompts.format_facts exactly like live alerts.",
+  "heat-stress-cluster": [
+    {
+      "facts": {
+        "scenario": "Heat-stress cluster",
+        "severity": "advisory",
+        "sites": [
+          "Example Logistics Park"
+        ],
+        "emirates": [
+          "Dubai"
+        ],
+        "local_time": "13:00 (afternoon)",
+        "drivers": [
+          {
+            "signal": "apparent temperature",
+            "pct": 61,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "worker absence rate",
+            "pct": 27,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "heat-related clinic encounters in the catchment",
+            "pct": 12,
+            "effect": "raises risk"
+          }
+        ],
+        "readings": [
+          {
+            "signal": "apparent temperature",
+            "now": "47.3 °C",
+            "usual": "41.0 °C"
+          },
+          {
+            "signal": "worker absence rate",
+            "now": "7.9%",
+            "usual": "4.2%"
+          },
+          {
+            "signal": "heat-related clinic encounters in the catchment",
+            "now": "5 per 24 h",
+            "usual": "1.8 per 24 h"
+          }
+        ],
+        "owner": "safety officer",
+        "response_window": "within 1 hour to within 4 hours",
+        "approved_actions": [
+          "Move heavy outdoor tasks before 10:00 or after 16:00.",
+          "Put a first-aider with cooling kit on standby on site."
+        ]
+      },
+      "response": "A heat-stress cluster advisory is active for Example Logistics Park in Dubai this afternoon. Apparent temperature drives 61% of the signal at 47.3 °C against a usual 41.0 °C, which raises the risk of heat illness for outdoor crews, and worker absence is also above normal at 7.9%. The safety officer should move heavy outdoor tasks to before 10:00 or after 16:00 and put a first-aider with a cooling kit on standby."
+    },
+    {
+      "facts": {
+        "scenario": "Heat-stress cluster",
+        "severity": "watch",
+        "sites": [
+          "Example Free Zone Phase 2",
+          "Example Harbour Yard"
+        ],
+        "emirates": [
+          "Abu Dhabi"
+        ],
+        "local_time": "10:00 (morning)",
+        "drivers": [
+          {
+            "signal": "worker absence rate",
+            "pct": 48,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "apparent temperature",
+            "pct": 40,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "heat-related clinic encounters in the catchment",
+            "pct": 12,
+            "effect": "lowers risk"
+          }
+        ],
+        "readings": [
+          {
+            "signal": "apparent temperature",
+            "now": "41.6 °C",
+            "usual": "38.9 °C"
+          },
+          {
+            "signal": "worker absence rate",
+            "now": "9.1%",
+            "usual": "4.5%"
+          }
+        ],
+        "owner": "site supervisor",
+        "response_window": "within 4 hours to within 24 hours",
+        "approved_actions": [
+          "Enforce water and shade breaks every 30 minutes at all outdoor work faces.",
+          "Brief crews on heat-illness symptoms and buddy checks."
+        ]
+      },
+      "response": "A heat-stress cluster watch has been issued for Example Free Zone Phase 2 and Example Harbour Yard in Abu Dhabi this morning. Worker absence accounts for 48% of the signal at 9.1% against a usual 4.5%, an early sign that crews may already be feeling the 41.6 °C apparent temperature. The site supervisor should enforce water and shade breaks every 30 minutes at all outdoor work faces."
+    }
+  ],
+  "respiratory-dust-event": [
+    {
+      "facts": {
+        "scenario": "Respiratory / dust event",
+        "severity": "watch",
+        "sites": [
+          "Example Rail Corridor"
+        ],
+        "emirates": [
+          "Abu Dhabi"
+        ],
+        "local_time": "08:00 (morning)",
+        "drivers": [
+          {
+            "signal": "PM2.5",
+            "pct": 58,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "PM10",
+            "pct": 31,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "respiratory clinic encounters in the catchment",
+            "pct": 11,
+            "effect": "lowers risk"
+          }
+        ],
+        "readings": [
+          {
+            "signal": "PM2.5",
+            "now": "71.4 µg/m³",
+            "usual": "24.0 µg/m³"
+          },
+          {
+            "signal": "PM10",
+            "now": "188.0 µg/m³",
+            "usual": "92.5 µg/m³"
+          }
+        ],
+        "owner": "safety officer",
+        "response_window": "within 4 hours to within 24 hours",
+        "approved_actions": [
+          "Move outdoor PE and break-time activities indoors for sensitive groups.",
+          "Issue FFP2 masks to outdoor site crews."
+        ]
+      },
+      "response": "A respiratory / dust event watch is in effect for Example Rail Corridor in Abu Dhabi this morning. PM2.5 drives 58% of the signal at 71.4 µg/m³, roughly three times its usual 24.0 µg/m³, and fine particles at this level can aggravate breathing problems for outdoor workers. The safety officer should issue FFP2 masks to all outdoor site crews before the next work period."
+    },
+    {
+      "facts": {
+        "scenario": "Respiratory / dust event",
+        "severity": "advisory",
+        "sites": [
+          "Example Towers Site"
+        ],
+        "emirates": [
+          "Sharjah"
+        ],
+        "local_time": "15:00 (afternoon)",
+        "drivers": [
+          {
+            "signal": "respiratory clinic encounters in the catchment",
+            "pct": 44,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "PM2.5",
+            "pct": 39,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "respiratory-coded worker absence rate",
+            "pct": 17,
+            "effect": "raises risk"
+          }
+        ],
+        "readings": [
+          {
+            "signal": "PM2.5",
+            "now": "63.0 µg/m³",
+            "usual": "27.5 µg/m³"
+          },
+          {
+            "signal": "respiratory clinic encounters in the catchment",
+            "now": "14 per 24 h",
+            "usual": "6.2 per 24 h"
+          },
+          {
+            "signal": "respiratory-coded worker absence rate",
+            "now": "2.4%",
+            "usual": "0.9%"
+          }
+        ],
+        "owner": "operations manager",
+        "response_window": "within 1 hour to within 4 hours",
+        "approved_actions": [
+          "Suspend outdoor school activities; keep windows closed and HVAC on recirculate.",
+          "Prioritise asthma/COPD patients for follow-up in affected catchments."
+        ]
+      },
+      "response": "A respiratory / dust event advisory is active for Example Towers Site in Sharjah this afternoon. Respiratory clinic encounters in the catchment account for 44% of the signal at 14 per 24 h against a usual 6.2, which suggests the 63.0 µg/m³ PM2.5 is already affecting people nearby. The operations manager should keep site offices and welfare cabins closed with HVAC on recirculate and move outdoor activity indoors where possible."
+    }
+  ],
+  "infectious-cluster-signal": [
+    {
+      "facts": {
+        "scenario": "Infectious cluster signal",
+        "severity": "watch",
+        "sites": [
+          "Example Labour Village"
+        ],
+        "emirates": [
+          "Dubai"
+        ],
+        "local_time": "09:00 (morning)",
+        "drivers": [
+          {
+            "signal": "all-cause clinic encounters in the catchment",
+            "pct": 66,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "febrile clinic encounters in the catchment",
+            "pct": 26,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "worker absence rate",
+            "pct": 8,
+            "effect": "raises risk"
+          }
+        ],
+        "readings": [
+          {
+            "signal": "all-cause clinic encounters in the catchment",
+            "now": "212 per 24 h",
+            "usual": "171.4 per 24 h"
+          },
+          {
+            "signal": "febrile clinic encounters in the catchment",
+            "now": "19 per 24 h",
+            "usual": "9.3 per 24 h"
+          }
+        ],
+        "owner": "medical lead",
+        "response_window": "within 4 hours to within 24 hours",
+        "approved_actions": [
+          "Review syndromic line lists for the catchment; check for common exposure sites."
+        ]
+      },
+      "response": "An infectious cluster signal watch has been raised for the catchment around Example Labour Village in Dubai this morning. All-cause clinic encounters drive 66% of the signal at 212 per 24 h against a usual 171.4, with febrile encounters also roughly double their normal level, which can be an early hint of a communicable illness cluster. The medical lead should review the aggregate syndromic line lists for the catchment and check for a common exposure site."
+    },
+    {
+      "facts": {
+        "scenario": "Infectious cluster signal",
+        "severity": "advisory",
+        "sites": [
+          "Example Industrial City Block C"
+        ],
+        "emirates": [
+          "Ajman"
+        ],
+        "local_time": "18:00 (evening)",
+        "drivers": [
+          {
+            "signal": "febrile clinic encounters in the catchment",
+            "pct": 52,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "all-cause clinic encounters in the catchment",
+            "pct": 35,
+            "effect": "raises risk"
+          },
+          {
+            "signal": "worker absence rate",
+            "pct": 13,
+            "effect": "raises risk"
+          }
+        ],
+        "readings": [
+          {
+            "signal": "febrile clinic encounters in the catchment",
+            "now": "24 per 24 h",
+            "usual": "10.1 per 24 h"
+          },
+          {
+            "signal": "worker absence rate",
+            "now": "6.8%",
+            "usual": "4.0%"
+          }
+        ],
+        "owner": "HR lead",
+        "response_window": "within 1 hour to within 4 hours",
+        "approved_actions": [
+          "Request site clinics to report febrile workers daily; reinforce hand hygiene and shared-accommodation ventilation."
+        ]
+      },
+      "response": "An infectious cluster signal advisory is active for Example Industrial City Block C in Ajman this evening. Febrile clinic encounters account for 52% of the signal at 24 per 24 h against a usual 10.1, and worker absence has risen to 6.8%, so illness may be spreading in shared settings. The HR lead should ask site clinics to report daily counts of febrile workers and reinforce hand hygiene and ventilation in shared accommodation."
+    }
+  ]
+}

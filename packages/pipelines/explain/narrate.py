@@ -109,3 +109,47 @@ def narrate_alert_template(alert_dict: dict) -> str:
         out.append("(Driver shares are the fusion weights: the explanation model was "
                    "unavailable for this hex.)")
     return " ".join(out)
+
+
+# ---------------------------------------------------------------------------------------
+# Arabic template (fallback when the LLM translation is unavailable or fails validation)
+# ---------------------------------------------------------------------------------------
+SCENARIO_AR = {
+    "heat-stress-cluster": "تجمّع حالات الإجهاد الحراري",
+    "respiratory-dust-event": "حدث تنفسي / غبار",
+    "infectious-cluster-signal": "مؤشر تجمّع حالات معدية",
+}
+SEVERITY_AR = {"watch": "مراقبة", "advisory": "تنبيه", "warning": "تحذير"}
+SIGNAL_LABELS_AR = {
+    "apparent_temp": "درجة الحرارة المحسوسة",
+    "pm25": "PM2.5",
+    "pm10": "PM10",
+    "absence_rate": "معدل غياب العمال",
+    "respiratory_absence_rate": "معدل الغياب لأسباب تنفسية",
+    "heat_related_encounter_count": "المراجعات المرتبطة بالحرارة",
+    "respiratory_encounter_count": "المراجعات التنفسية",
+    "any_encounter_count": "إجمالي المراجعات",
+    "fever_encounter_count": "مراجعات الحمّى",
+}
+
+
+def narrate_alert_template_ar(alert_dict: dict) -> str:
+    """Arabic counterpart of narrate_alert_template (same facts, Western digits)."""
+    a = alert_dict
+    sev = SEVERITY_AR.get(a.get("severity", "watch"), a.get("severity", ""))
+    scen = SCENARIO_AR.get(a.get("scenario_id", ""), a.get("scenario_label", ""))
+    names = [n for n in (a.get("site_names") or []) if n]
+    places = "، ".join(names) if names else "المنطقة المتأثرة"
+    out = [f"صدر مستوى {sev} بشأن {scen} في {places}."]
+    drivers = {k: float(v) for k, v in (a.get("drivers") or {}).items() if v is not None}
+    detail = (a.get("shap") or {}).get("signals") or {}
+    up = [(k, v) for k, v in sorted(drivers.items(), key=lambda kv: -kv[1])
+          if (detail.get(k) or {}).get("direction", "raises_risk") == "raises_risk" and round(v) > 0]
+    if up:
+        lab = lambda k: SIGNAL_LABELS_AR.get(k, k)  # noqa: E731
+        s = f"العامل الرئيسي هو {lab(up[0][0])} ({up[0][1]:.0f}% من الإشارة)"
+        rest = [f"{lab(k)} ({v:.0f}%)" for k, v in up[1:3]]
+        if rest:
+            s += "، يليه " + " و".join(rest)
+        out.append(s + ".")
+    return " ".join(out)

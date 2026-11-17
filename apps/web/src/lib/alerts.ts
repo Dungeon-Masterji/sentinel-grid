@@ -52,6 +52,36 @@ export type WaterfallResponse = {
   steps: WaterfallStep[];
 };
 
+export type OwnerRole = "site_supervisor" | "safety_officer" | "medical_lead" | "operations_manager" | "hr_lead";
+export type TimeWindow = "immediate" | "within_1h" | "within_4h" | "within_24h" | "this_week";
+export type NarrationSource = "llm" | "template_fallback";
+
+/** Structured action (pydantic RecommendedAction in packages/pipelines/explain/llm.py). */
+export type RecommendedAction = {
+  owner_role: OwnerRole;
+  time_window: TimeWindow;
+  specific_action: string;
+  escalation_if_no_ack_in_minutes: number;
+  source: NarrationSource;
+  model: string | null;
+};
+
+export const OWNER_ROLE: Record<OwnerRole, { en: string; ar: string }> = {
+  site_supervisor: { en: "Site supervisor", ar: "مشرف الموقع" },
+  safety_officer: { en: "Safety officer", ar: "ضابط السلامة" },
+  medical_lead: { en: "Medical lead", ar: "المسؤول الطبي" },
+  operations_manager: { en: "Operations manager", ar: "مدير العمليات" },
+  hr_lead: { en: "HR lead", ar: "مسؤول الموارد البشرية" },
+};
+
+export const TIME_WINDOW: Record<TimeWindow, { en: string; ar: string }> = {
+  immediate: { en: "Immediately", ar: "فوراً" },
+  within_1h: { en: "Within 1 hour", ar: "خلال ساعة" },
+  within_4h: { en: "Within 4 hours", ar: "خلال 4 ساعات" },
+  within_24h: { en: "Within 24 hours", ar: "خلال 24 ساعة" },
+  this_week: { en: "This week", ar: "هذا الأسبوع" },
+};
+
 export type AlertItem = {
   id: string;
   scenario_id: string;
@@ -72,6 +102,12 @@ export type AlertItem = {
   drivers_prior: Record<string, number>;
   drivers_method: "shap" | "fusion_weights";
   explanation_template: string | null;
+  /** LLM narration (Groq), or the template when explanation_source is "template_fallback". */
+  explanation_en: string | null;
+  explanation_ar: string | null;
+  explanation_source: NarrationSource;
+  explanation_ar_source: NarrationSource | null;
+  action: RecommendedAction | null;
   driver_details: Record<string, DriverDetail>;
   created_at: string;
   peak_at: string;

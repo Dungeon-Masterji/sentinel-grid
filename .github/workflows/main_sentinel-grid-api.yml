@@ -33,10 +33,18 @@ jobs:
             -r requirements.txt
 
       - name: Vendor pipeline code used by the API
-        # apps/api/routers/clinical.py loads this via importlib from wwwroot/_vendor
+        # apps/api/routers/clinical.py loads synthea_wrapper via importlib from wwwroot/_vendor;
+        # routers/alerts.py loads the LLM narration package (regenerate_narration) as
+        # sentinel_explain, plus the scenario config as JSON (no pyyaml on Azure).
         run: |
-          mkdir -p apps/api/_vendor
+          set -euo pipefail
+          mkdir -p apps/api/_vendor/sentinel_explain/fixtures
           cp packages/pipelines/synth/synthea_wrapper.py apps/api/_vendor/
+          cp packages/pipelines/explain/{groq_client,llm,narrate,prompts}.py apps/api/_vendor/sentinel_explain/
+          cp packages/pipelines/explain/fixtures/fewshot.json apps/api/_vendor/sentinel_explain/fixtures/
+          : > apps/api/_vendor/sentinel_explain/__init__.py
+          python -m pip install -q pyyaml
+          python -c "import json, yaml; print(json.dumps(yaml.safe_load(open('configs/scenarios.yaml'))))" > apps/api/_vendor/scenarios.json
 
       - name: Pull clinical parquets from data branch
         # Written nightly by .github/workflows/clinical-refresh.yml. If the branch

@@ -4,20 +4,17 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CheckCircle2, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShapWhy } from "@/components/alerts/shap-why";
+import { ShapWhy, type Lang } from "@/components/alerts/shap-why";
+import { AckButton, ActionCard } from "@/components/alerts/action-card";
 import {
   PILLAR,
   SEVERITY,
-  ackAlert,
   signalLabel,
   useAlertDetail,
-  type AlertDetail,
   type AlertItem,
   type TracePoint,
 } from "@/lib/alerts";
@@ -61,68 +58,21 @@ function SignalTrace({ name, points, color, unit }: { name: string; points: Trac
   );
 }
 
-function AckForm({ alert, onDone }: { alert: AlertDetail; onDone: () => void }) {
-  const [by, setBy] = useState("");
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  return (
-    <form
-      className="space-y-2"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!by.trim()) return setErr("Enter who is acknowledging");
-        setBusy(true);
-        setErr(null);
-        try {
-          await ackAlert(alert.id, by.trim(), notes.trim());
-          setNotes("");
-          onDone();
-        } catch (x) {
-          setErr(String((x as Error).message));
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <input
-        value={by}
-        onChange={(e) => setBy(e.target.value)}
-        placeholder={`Your role, e.g. ${alert.action_owner}`}
-        maxLength={120}
-        className="w-full rounded-md border border-slate-200 bg-transparent px-2.5 py-1.5 text-sm dark:border-slate-700"
-      />
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Action taken (optional)"
-        maxLength={2000}
-        rows={2}
-        className="w-full rounded-md border border-slate-200 bg-transparent px-2.5 py-1.5 text-sm dark:border-slate-700"
-      />
-      <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={busy}>
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-          Acknowledge
-        </Button>
-        <span className="text-[11px] text-slate-500">Not authenticated (hackathon build)</span>
-      </div>
-      {err && <div className="text-xs text-rose-600">{err}</div>}
-    </form>
-  );
-}
-
 export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; onOpenChange: (o: boolean) => void }) {
   const { data, isLoading, mutate } = useAlertDetail(alert?.id ?? null);
   const d = data?.alert;
   const sev = alert ? SEVERITY[alert.severity] : null;
+  const [lang, setLang] = useState<Lang>("en");
+  // detail (with regenerate_narration overrides) wins over the list item once loaded
+  const shown = d ?? alert;
 
   return (
     <Sheet open={alert != null} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        {alert && sev && (
-          <>
-            <SheetHeader>
+        {alert && shown && sev && (
+          // Arabic flips the whole panel; charts mirror themselves via `lang`
+          <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="contents">
+            <SheetHeader className="pr-12">
               <div className="flex items-center gap-2">
                 <Badge className={sev.badge}>{sev.label}</Badge>
                 <span className="text-xs text-slate-500">
@@ -144,7 +94,7 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
                 </div>
                 <div>
                   <div className="text-slate-500">90% credible interval</div>
-                  <div className="font-medium tabular-nums">
+                  <div dir="ltr" className="font-medium tabular-nums rtl:text-right">
                     {alert.credible_interval[0].toFixed(2)} – {alert.credible_interval[1].toFixed(2)}
                   </div>
                 </div>
@@ -154,7 +104,12 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
                 </div>
               </div>
 
-              <ShapWhy alert={alert} detail={d} />
+              <ShapWhy alert={shown} detail={d} lang={lang} onLang={setLang} />
+
+              <section className="space-y-2">
+                <ActionCard alert={shown} lang={lang} />
+                <AckButton key={alert.id} alert={shown} lang={lang} onDone={() => mutate()} />
+              </section>
 
               <section>
                 <h3 className="mb-2 text-xs uppercase tracking-wider text-slate-500">Signal readings</h3>
@@ -176,11 +131,11 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
                           {signalLabel(k)}
                           <div className="text-[10px] text-slate-500">{v.source}</div>
                         </td>
-                        <td className="text-right tabular-nums">{v.suppressed || v.value == null ? "—" : v.value.toFixed(2)}</td>
-                        <td className="text-right tabular-nums">{v.baseline == null ? "—" : v.baseline.toFixed(2)}</td>
-                        <td className="text-right tabular-nums">{v.z == null ? "—" : v.z.toFixed(1)}</td>
-                        <td className="text-right tabular-nums">{v.score == null ? "—" : v.score.toFixed(2)}</td>
-                        <td className="text-right tabular-nums">{v.weight.toFixed(2)}</td>
+                        <td dir="ltr" className="text-right tabular-nums">{v.suppressed || v.value == null ? "—" : v.value.toFixed(2)}</td>
+                        <td dir="ltr" className="text-right tabular-nums">{v.baseline == null ? "—" : v.baseline.toFixed(2)}</td>
+                        <td dir="ltr" className="text-right tabular-nums">{v.z == null ? "—" : v.z.toFixed(1)}</td>
+                        <td dir="ltr" className="text-right tabular-nums">{v.score == null ? "—" : v.score.toFixed(2)}</td>
+                        <td dir="ltr" className="text-right tabular-nums">{v.weight.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -224,7 +179,7 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
               </section>
 
               <section>
-                <h3 className="mb-1 text-xs uppercase tracking-wider text-slate-500">Recommended actions</h3>
+                <h3 className="mb-1 text-xs uppercase tracking-wider text-slate-500">Playbook actions</h3>
                 <div className="mb-2 text-xs text-slate-500">
                   Owner: <span className="font-medium text-slate-700 dark:text-slate-300">{alert.action_owner}</span>
                 </div>
@@ -254,10 +209,9 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
                 ) : (
                   <div className="text-xs text-slate-500">Not acknowledged yet.</div>
                 )}
-                {d && <AckForm alert={d} onDone={() => mutate()} />}
               </section>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>

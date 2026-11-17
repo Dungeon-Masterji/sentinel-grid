@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PILLAR,
@@ -15,6 +16,57 @@ import {
 const SURFACE = "var(--popover)"; // 2px gaps between fills = the Sheet surface
 const INK = "var(--foreground)";
 const MUTED = "var(--muted-foreground)";
+
+export type Lang = "en" | "ar";
+
+/** UI strings for the alert side panel (the narration itself comes from the API). */
+export const T = {
+  en: {
+    why: "Why this alert",
+    reliability: "Explanation reliability: high (R² 0.998)",
+    template: "Template text (LLM unavailable)",
+    action: "Recommended action",
+    owner: "Owner",
+    window: "Time window",
+    escalate: (m: number) => `Escalate if not acknowledged in ${m} min`,
+    ack: "Acknowledge",
+    acked: "Acknowledged",
+    yourRole: "Your role",
+  },
+  ar: {
+    why: "لماذا هذا التنبيه",
+    reliability: "موثوقية التفسير: عالية (R² 0.998)",
+    template: "نص قالب (النموذج اللغوي غير متاح)",
+    action: "الإجراء الموصى به",
+    owner: "المسؤول",
+    window: "الإطار الزمني",
+    escalate: (m: number) => `يُصعَّد إذا لم يُؤكَّد الاستلام خلال ${m} دقيقة`,
+    ack: "تأكيد الاستلام",
+    acked: "تم تأكيد الاستلام",
+    yourRole: "دورك",
+  },
+} as const;
+
+/** EN / عربي segmented toggle (shadcn Buttons in a group). */
+export function LangToggle({ lang, onChange }: { lang: Lang; onChange: (l: Lang) => void }) {
+  return (
+    <div role="group" aria-label="Explanation language" data-slot="button-group" className="inline-flex rounded-lg border p-0.5">
+      {(["en", "ar"] as const).map((l) => (
+        <Button
+          key={l}
+          type="button"
+          size="xs"
+          variant={lang === l ? "default" : "ghost"}
+          aria-pressed={lang === l}
+          lang={l}
+          onClick={() => onChange(l)}
+        >
+          {l === "en" ? "EN" : "عربي"}
+        </Button>
+      ))}
+    </div>
+  );
+}
 
 /** One pattern per pillar: 45° hatch for the 2nd signal of the same pillar. */
 function HatchDefs() {
@@ -49,8 +101,11 @@ function pctLabel(v: unknown) {
   return n >= 6 ? `${Math.round(n)}%` : "";
 }
 
-function ContributionBars({ alert }: { alert: AlertItem }) {
+function ContributionBars({ alert, rtl }: { alert: AlertItem; rtl: boolean }) {
   const segs = segments(alert);
+  const [start, end]: [[number, number, number, number], [number, number, number, number]] = rtl
+    ? [[0, 4, 4, 0], [4, 0, 0, 4]]
+    : [[4, 0, 0, 4], [0, 4, 4, 0]];
   const shapLabel = alert.drivers_method === "shap" ? "SHAP · this alert" : "Fusion weights (fallback)";
   const rows = [
     { row: shapLabel, ...alert.drivers },
@@ -58,12 +113,12 @@ function ContributionBars({ alert }: { alert: AlertItem }) {
   ];
   return (
     <div>
-      <div className="h-[104px]">
+      <div dir="ltr" className="h-[104px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart accessibilityLayer={false} data={rows} layout="vertical" margin={{ top: 14, right: 4, bottom: 0, left: 0 }} barCategoryGap={18}>
             <HatchDefs />
-            <XAxis type="number" domain={[0, 100]} hide />
-            <YAxis type="category" dataKey="row" width={112} tick={{ fontSize: 11, fill: MUTED }} axisLine={false} tickLine={false} />
+            <XAxis type="number" domain={[0, 100]} hide reversed={rtl} />
+            <YAxis type="category" dataKey="row" width={112} orientation={rtl ? "right" : "left"} tick={{ fontSize: 11, fill: MUTED }} axisLine={false} tickLine={false} />
             <Tooltip
               cursor={{ fill: "var(--muted)", opacity: 0.4 }}
               contentStyle={{ fontSize: 11 }}
@@ -78,7 +133,7 @@ function ContributionBars({ alert }: { alert: AlertItem }) {
                 fill={s.fill}
                 stroke={SURFACE}
                 strokeWidth={2}
-                radius={i === segs.length - 1 ? [0, 4, 4, 0] : i === 0 ? [4, 0, 0, 4] : 0}
+                radius={i === segs.length - 1 ? end : i === 0 ? start : 0}
                 isAnimationActive={false}
               >
                 <LabelList dataKey={s.key} position="top" offset={3} formatter={pctLabel} style={{ fontSize: 10, fill: INK }} />
@@ -107,7 +162,7 @@ function ContributionBars({ alert }: { alert: AlertItem }) {
 
 type WfRow = WaterfallStep & { label: string; range: [number, number]; fill: string };
 
-function Waterfall({ alert }: { alert: AlertDetail }) {
+function Waterfall({ alert, rtl }: { alert: AlertDetail; rtl: boolean }) {
   const { data, error, isLoading } = useShapWaterfall(alert.id, alert.drivers_method === "shap");
   if (alert.drivers_method !== "shap") return null;
   if (isLoading) return <Skeleton className="h-36 w-full" />;
@@ -134,13 +189,15 @@ function Waterfall({ alert }: { alert: AlertDetail }) {
           typical hour {data.base_value.toFixed(2)} → this alert {data.prediction.toFixed(2)}
         </span>
       </div>
-      <div style={{ height: 36 + rows.length * 30 }}>
+      <div dir="ltr" style={{ height: 36 + rows.length * 30 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart accessibilityLayer={false} data={rows} layout="vertical" margin={{ top: 16, right: 40, bottom: 0, left: 0 }} barCategoryGap={6}>
+          <BarChart accessibilityLayer={false} data={rows} layout="vertical"
+            margin={{ top: 16, right: rtl ? 0 : 40, bottom: 0, left: rtl ? 40 : 0 }} barCategoryGap={6}>
             <HatchDefs />
+            {/* RTL: the value axis runs right-to-left, so positive (risk-raising) steps point left */}
             <XAxis type="number" domain={[Math.max(0, lo - pad), hi + pad]} tick={{ fontSize: 10, fill: MUTED }}
-              tickFormatter={(v: number) => v.toFixed(2)} stroke="var(--border)" />
-            <YAxis type="category" dataKey="label" width={112} tick={{ fontSize: 11, fill: MUTED }} axisLine={false} tickLine={false} />
+              tickFormatter={(v: number) => v.toFixed(2)} stroke="var(--border)" reversed={rtl} />
+            <YAxis type="category" dataKey="label" width={112} orientation={rtl ? "right" : "left"} tick={{ fontSize: 11, fill: MUTED }} axisLine={false} tickLine={false} />
             <ReferenceLine x={data.base_value} stroke={MUTED} strokeDasharray="3 3"
               label={{ value: "typical", position: "top", fontSize: 10, fill: MUTED }} />
             <ReferenceLine x={data.prediction} stroke={INK}
@@ -167,7 +224,7 @@ function Waterfall({ alert }: { alert: AlertDetail }) {
               {rows.map((r) => (
                 <Cell key={r.signal} fill={r.fill} />
               ))}
-              <LabelList dataKey="shap" position="right" formatter={(v: unknown) => fmt(Number(v))}
+              <LabelList dataKey="shap" position={rtl ? "left" : "right"} formatter={(v: unknown) => fmt(Number(v))}
                 style={{ fontSize: 10, fill: INK }} />
             </Bar>
           </BarChart>
@@ -181,19 +238,36 @@ function Waterfall({ alert }: { alert: AlertDetail }) {
   );
 }
 
-/** "Why this alert": template narrative, SHAP vs fusion-weight bar, SHAP waterfall. */
-export function ShapWhy({ alert, detail }: { alert: AlertItem; detail: AlertDetail | undefined }) {
+/** "Why this alert": LLM narrative (EN / عربي), SHAP vs fusion-weight bar, SHAP waterfall.
+ *  The parent sets dir="rtl" on the whole panel for Arabic; charts mirror via `lang`. */
+export function ShapWhy({ alert, detail, lang, onLang }: {
+  alert: AlertItem; detail: AlertDetail | undefined; lang: Lang; onLang: (l: Lang) => void;
+}) {
+  const rtl = lang === "ar";
+  const t = T[lang];
+  const en = alert.explanation_en ?? alert.explanation_template;
+  const text = rtl ? alert.explanation_ar ?? en : en;
+  const fallback = rtl ? alert.explanation_ar_source !== "llm" : alert.explanation_source !== "llm";
   return (
     <section className="space-y-3">
-      <h3 className="text-xs uppercase tracking-wider text-slate-500">Why this alert</h3>
-      {alert.explanation_template && <p className="text-sm leading-relaxed">{alert.explanation_template}</p>}
-      <ContributionBars alert={alert} />
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs uppercase tracking-wider text-slate-500">{t.why}</h3>
+        <LangToggle lang={lang} onChange={onLang} />
+      </div>
+      {text && (
+        <p lang={rtl && alert.explanation_ar ? "ar" : "en"} className={rtl ? "text-base leading-loose" : "text-sm leading-relaxed"}>
+          {text}
+        </p>
+      )}
+      {text && fallback && <div className="text-[11px] text-muted-foreground">{t.template}</div>}
+      <ContributionBars alert={alert} rtl={rtl} />
       {alert.drivers_method !== "shap" && (
         <div className="text-[11px] text-muted-foreground">
           The explanation model could not be fitted for this hex; shares shown are the fusion weights.
         </div>
       )}
-      {detail ? <Waterfall alert={detail} /> : <Skeleton className="h-36 w-full" />}
+      {detail ? <Waterfall alert={detail} rtl={rtl} /> : <Skeleton className="h-36 w-full" />}
+      <div className="text-[11px] text-muted-foreground">{t.reliability}</div>
       {detail?.shap_disagreements?.length ? (
         <div className="text-[11px] text-muted-foreground">
           SHAP disagrees with the fusion weights on{" "}

@@ -46,6 +46,14 @@ explain:                          # SHAP drivers (packages/pipelines/explain/sha
   shap_budget_ms: 300
   disagreement_min_pct: 5         # log SHAP-vs-weight sign disagreements above this share
 
+narration:                        # LLM narration (packages/pipelines/explain/llm.py, Groq)
+  daily_token_budget: 100000      # free-tier guard: no LLM calls once today's total (UTC) exceeds this
+  per_alert_token_budget: 500     # completion tokens per alert across narrate + translate + action
+  action_cache_hours: 6           # = dedupe window; actions cached per scenario + hex + severity
+  # Template fallback for the structured action when the LLM is unavailable or invalid.
+  fallback_time_window: { watch: within_4h, advisory: within_1h, warning: immediate }
+  fallback_escalation_minutes: { watch: 240, advisory: 60, warning: 15 }
+
 baseline:
   seasonality: [daily, weekly]
   min_history_days: 30
@@ -85,6 +93,9 @@ scenarios:
     thresholds: { watch: 0.45, advisory: 0.51, warning: 0.56 }
     action_owner: site supervisor
     escalation_owner: MoHRE inspector
+    owner_roles:                  # structured-action owners (llm.OwnerRole); default per severity
+      valid: [site_supervisor, safety_officer, medical_lead, operations_manager]
+      default: { watch: site_supervisor, advisory: safety_officer, warning: operations_manager }
     recommended_actions:
       watch:
         - Enforce water and shade breaks every 30 minutes at all outdoor work faces.
@@ -109,6 +120,9 @@ scenarios:
     thresholds: { watch: 0.47, advisory: 0.59, warning: 0.68 }
     action_owner: school authority
     escalation_owner: DoH surveillance
+    owner_roles:
+      valid: [safety_officer, site_supervisor, operations_manager, medical_lead]
+      default: { watch: safety_officer, advisory: operations_manager, warning: medical_lead }
     recommended_actions:
       watch:
         - Move outdoor PE and break-time activities indoors for sensitive groups.
@@ -133,6 +147,9 @@ scenarios:
     thresholds: { watch: 0.45, advisory: 0.53, warning: 0.56 }
     action_owner: DoH surveillance
     escalation_owner: DoH surveillance
+    owner_roles:
+      valid: [medical_lead, hr_lead, operations_manager]
+      default: { watch: medical_lead, advisory: hr_lead, warning: medical_lead }
     recommended_actions:
       watch:
         - Review syndromic line lists for the catchment; check for common exposure sites.

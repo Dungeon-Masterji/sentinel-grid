@@ -18,7 +18,12 @@ generate_alerts(as_of_time, scenarios_yaml):
      `drivers` = SHAP shares; `drivers_prior` = the static fusion-weight shares. If the
      surrogate cannot be fitted (sparse hexes), `drivers` falls back to the prior and
      `drivers_method` says so: an alert never ships without drivers.
-  7. write data/processed/alerts/{active,signal_traces,fused_traces}.parquet + meta.json
+  7. narrate (Chunk 5, packages/pipelines/explain/llm.py): Groq LLM English narration,
+     Arabic translation and a structured recommended action per alert, cached in
+     data/processed/explain/narration_cache.sqlite. Template fallback (and
+     explanation_source = "template_fallback") when the LLM is off, rate-limited,
+     over budget, or returns something that fails validation.
+  8. write data/processed/alerts/{active,signal_traces,fused_traces}.parquet + meta.json
 
 Only the CLI entry point reads the clock; every function takes time from its caller.
 """
@@ -46,6 +51,8 @@ from packages.pipelines.fusion.config import SCENARIOS_YAML, SEVERITIES, load_sc
 from packages.pipelines.fusion.detect import detect, fit_all  # noqa: E402
 from packages.pipelines.fusion.signals import PROCESSED, build_signal_panel  # noqa: E402
 from packages.pipelines.fusion.spatial import hex_boundary_geojson  # noqa: E402
+from packages.pipelines.explain.groq_client import NarrationCache  # noqa: E402
+from packages.pipelines.explain.llm import narrate_alerts  # noqa: E402
 from packages.pipelines.explain.narrate import narrate_alert_template  # noqa: E402
 from packages.pipelines.explain.shap_runner import (EXPLAIN_DIR, explain_config,  # noqa: E402
                                                     fit_scenario_surrogates,
@@ -347,7 +354,7 @@ def _num(x, nd: int = 4):
 
 ALERT_JSON_FIELDS = ("drivers", "drivers_prior", "drivers_severity", "driver_details",
                      "driver_onsets", "shap", "shap_severity", "shap_disagreements",
-                     "hex_boundary")
+                     "hex_boundary", "action", "narration")
 
 
 def alerts_frame(alerts: list[dict]) -> pd.DataFrame:
@@ -355,7 +362,8 @@ def alerts_frame(alerts: list[dict]) -> pd.DataFrame:
             "site_names", "emirates", "clinical_catchment", "score", "credible_interval",
             "coverage", "drivers", "drivers_prior", "drivers_method", "drivers_severity",
             "driver_details", "driver_onsets", "shap", "shap_severity", "shap_disagreements",
-            "explanation_template", "created_at", "peak_at", "window_start",
+            "explanation_template", "explanation_en", "explanation_ar", "explanation_source",
+            "explanation_ar_source", "action", "narration", "created_at", "peak_at", "window_start",
             "expires_at", "as_of", "action_owner", "recommended_actions", "hex_boundary"]
     rows = [{**a, **{k: json.dumps(a.get(k)) for k in ALERT_JSON_FIELDS}} for a in alerts]
     df = pd.DataFrame(rows, columns=cols)
@@ -380,8 +388,12 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
                     processed_dir: Path = PROCESSED, out_dir: Path | None = ALERTS_DIR,
                     cache_dir: Path | None = CACHE_DIR, use_cache: bool = True,
                     explain_dir: Path | None = EXPLAIN_DIR,
-                    panel_kwargs: dict | None = None) -> list[dict]:
-    """Run the full pipeline as of ``as_of_time`` and return the active alerts."""
+                    panel_kwargs: dict | None = None, llm: bool = True,
+                    narration_cache: NarrationCache | None = None) -> list[dict]:
+    """Run the full pipeline as of ``as_of_time`` and return the active alerts.
+
+    ``llm=False`` (or no GROQ_API_KEY) narrates every alert from templates. The narration
+    cache defaults to <explain_dir>/narration_cache.sqlite (in memory if explain_dir is None)."""
     cfg = load_scenarios(scenarios_yaml)
     mode = mode or cfg.get("fusion", {}).get("mode", "map")
     as_of = pd.Timestamp(as_of_time)
@@ -418,6 +430,12 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
         explain_meta = {sid: {t: (dict(getattr(c[t][0], "sentinel_meta_", {})) if c.get(t) else None)
                               for t in ("regression", "classification")}
                         for sid, c in surrogates.items()}
+    t5 = time.time()
+    if narration_cache is None:
+        narration_cache = NarrationCache(Path(explain_dir) / "narration_cache.sqlite"
+                                         if explain_dir is not None else ":memory:")
+    narration_stats = narrate_alerts(alerts, cfg, cache=narration_cache, enabled=llm)
+    timings["narrate_s"] = round(time.time() - t5, 2)
     timings["total_s"] = round(time.time() - t0, 2)
 
     if out_dir is not None:
@@ -441,7 +459,8 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
         _write(units_out, out_dir / "units.parquet", meta)
         (out_dir / "meta.json").write_text(json.dumps(
             {"as_of": _iso(as_of), "mode": mode, "n_alerts": len(alerts), "timings": timings,
-             "surrogates": explain_meta, "notice": NOTICE}, indent=2, default=str))
+             "surrogates": explain_meta, "narration": narration_stats, "notice": NOTICE},
+            indent=2, default=str))
     log.info("as_of=%s alerts=%d timings=%s", _iso(as_of), len(alerts), timings)
     return alerts
 
@@ -452,18 +471,29 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mode", choices=["map", "sampled"], default=None)
     ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--out-dir", type=Path, default=ALERTS_DIR)
+    ap.add_argument("--no-llm", action="store_true", help="template narration only (no Groq calls)")
     args = ap.parse_args(argv)
+    try:                                   # local runs: pick up GROQ_* from .env
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).resolve().parents[3] / ".env", override=False)
+    except ImportError:
+        pass
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     # The only clock read in the fusion package: the CLI decides "now".
     as_of = pd.Timestamp(args.as_of) if args.as_of else pd.Timestamp(datetime.now(timezone.utc))
-    alerts = generate_alerts(as_of, mode=args.mode, use_cache=not args.no_cache, out_dir=args.out_dir)
+    alerts = generate_alerts(as_of, mode=args.mode, use_cache=not args.no_cache, out_dir=args.out_dir,
+                             llm=not args.no_llm)
     print(f"\n{len(alerts)} active alert(s) as of {_iso(as_of)}")
     for a in alerts:
         drv = ", ".join(f"{k} {v:.0f}%" for k, v in sorted(a["drivers"].items(), key=lambda kv: -kv[1]))
         print(f"  [{a['severity']:8}] {a['scenario_id']:26} {', '.join(a['site_names'])[:44]:44} "
               f"score {a['score']:.2f} [{a['credible_interval'][0]:.2f}, {a['credible_interval'][1]:.2f}]  "
               f"{a['drivers_method']}: {drv}")
-        print(f"             {a['explanation_template']}")
+        print(f"             [{a['explanation_source']}] {a['explanation_en']}")
+        print(f"             [{a['explanation_ar_source']}] {a['explanation_ar']}")
+        act = a["action"]
+        print(f"             action [{act['source']}] {act['owner_role']} / {act['time_window']} / "
+              f"escalate {act['escalation_if_no_ack_in_minutes']} min: {act['specific_action']}")
     return 0
 
 

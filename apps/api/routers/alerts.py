@@ -31,14 +31,28 @@ Explainability (Chunk 4): every alert carries
 GET /{id}/shap_waterfall returns the raw SHAP values for client-side waterfall charts.
 SHAP is computed in the pipeline; the API only reads it (no lightgbm/shap at runtime).
 
+LLM narration (Chunk 5): the pipeline also stores
+  explanation_en / explanation_ar   Groq narration (gpt-oss-120b) + Arabic (allam-2-7b)
+  explanation_source / explanation_ar_source   "llm" | "template_fallback"
+  action                            {owner_role, time_window, specific_action,
+                                     escalation_if_no_ack_in_minutes, source, model}
+GET /{id}/regenerate_narration (X-Admin-Token == $ADMIN_TOKEN) re-runs the three LLM calls
+here in the API, using the same code vendored into _vendor/sentinel_explain at deploy time,
+and stores the result in narration_overrides.json in the state dir; overrides win over the
+pipeline's text for that alert id. Needs GROQ_API_KEY (+ GROQ_MODEL, GROQ_MODEL_AR) in the
+app settings. SECURITY GAP (hackathon): a single shared admin token, no user identity.
+
 Times in responses are Asia/Dubai (ISO-8601, +04:00). Storage is UTC.
 """
 from __future__ import annotations
 
 import hmac
+import importlib
+import importlib.util
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -194,6 +208,78 @@ class _Store:
 store = _Store()
 
 
+# -- LLM narration overrides (regenerate_narration) -------------------------------------
+NARRATION_FIELDS = ("explanation_en", "explanation_ar", "explanation_source",
+                    "explanation_ar_source", "action", "narration")
+_override_lock = threading.Lock()
+_override_cache: dict = {"key": None, "data": {}}
+
+
+def _overrides_path() -> Path:
+    return _state_dir() / "narration_overrides.json"
+
+
+def _overrides() -> dict:
+    p = _overrides_path()
+    if not p.is_file():
+        return {}
+    key = p.stat().st_mtime
+    with _override_lock:
+        if _override_cache["key"] != key:
+            try:
+                _override_cache["data"] = json.loads(p.read_text(encoding="utf-8"))
+            except ValueError:
+                _override_cache["data"] = {}
+            _override_cache["key"] = key
+        return _override_cache["data"]
+
+
+def _save_override(alert_id: str, rec: dict) -> None:
+    p = _overrides_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with _override_lock:
+        data = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        data[alert_id] = rec
+        if len(data) > 500:                     # keep the newest 500
+            data = dict(sorted(data.items(), key=lambda kv: kv[1].get("regenerated_at", ""))[-500:])
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, p)
+        _override_cache["key"] = None
+
+
+def _explain_pkg_dirs() -> list[Path]:
+    out = [API_DIR / "_vendor" / "sentinel_explain"]
+    if REPO_ROOT is not None:
+        out.append(REPO_ROOT / "packages" / "pipelines" / "explain")
+    return out
+
+
+def _llm():
+    """packages/pipelines/explain loaded as package 'sentinel_explain' (vendored on Azure)."""
+    if "sentinel_explain.llm" in sys.modules:
+        return sys.modules["sentinel_explain.llm"]
+    for d in _explain_pkg_dirs():
+        if (d / "llm.py").is_file():
+            spec = importlib.util.spec_from_file_location(
+                "sentinel_explain", d / "__init__.py", submodule_search_locations=[str(d)])
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules["sentinel_explain"] = mod
+            spec.loader.exec_module(mod)
+            return importlib.import_module("sentinel_explain.llm")
+    raise HTTPException(503, detail="narration code not deployed (_vendor/sentinel_explain missing)")
+
+
+def _scenarios_cfg() -> dict:
+    p = API_DIR / "_vendor" / "scenarios.json"
+    if p.is_file():
+        return json.loads(p.read_text(encoding="utf-8"))
+    if REPO_ROOT is not None and (REPO_ROOT / "configs" / "scenarios.yaml").is_file():
+        import yaml
+        return yaml.safe_load((REPO_ROOT / "configs" / "scenarios.yaml").read_text())
+    raise HTTPException(503, detail="scenario config not deployed (_vendor/scenarios.json missing)")
+
+
 def _local(ts) -> str | None:
     import pandas as pd
     if ts is None or (isinstance(ts, float) and ts != ts):
@@ -232,6 +318,11 @@ def _row_to_alert(r, *, full: bool = False) -> dict:
         "drivers": drivers, "drivers_prior": _json(r, "drivers_prior", drivers),
         "drivers_method": (r.get("drivers_method") or "fusion_weights"),
         "explanation_template": r.get("explanation_template"),
+        "explanation_en": r.get("explanation_en") or r.get("explanation_template"),
+        "explanation_ar": r.get("explanation_ar"),
+        "explanation_source": r.get("explanation_source") or "template_fallback",
+        "explanation_ar_source": r.get("explanation_ar_source"),
+        "action": _json(r, "action"),
         "driver_details": _json(r, "driver_details", {}),
         "created_at": _local(r["created_at"]), "peak_at": _local(r["peak_at"]),
         "window_start": _local(r["window_start"]), "expires_at": _local(r["expires_at"]),
@@ -249,6 +340,10 @@ def _row_to_alert(r, *, full: bool = False) -> dict:
             "background_rows": shap.get("background_rows")}
         d["footprint"] = {"type": "Feature", "geometry": json.loads(r["hex_boundary"]),
                           "properties": {"h3_cell": r["h3_cell"], "resolution": 7}}
+        d["narration"] = _json(r, "narration")
+    ov = _overrides().get(d["id"])
+    if ov:
+        d.update({k: ov[k] for k in NARRATION_FIELDS if k in ov and (full or k != "narration")})
     return d
 
 
@@ -377,6 +472,41 @@ def shap_waterfall(alert_id: str,
     return _envelope(alert_id=alert_id, task=task, level=level, output=payload.get("output"),
                      base_value=payload["base_value"], prediction=round(run, 6),
                      model=payload.get("model"), steps=steps)
+
+
+@router.get("/{alert_id}/regenerate_narration")
+def regenerate_narration(alert_id: str, x_admin_token: str | None = Header(None)):
+    """Force fresh LLM narration + Arabic + action for one alert (admin only).
+
+    GET because the spec asks for it; it is NOT idempotent (it spends Groq tokens)."""
+    token = os.environ.get("ADMIN_TOKEN")
+    if not token:
+        raise HTTPException(503, detail="admin endpoint not configured (ADMIN_TOKEN unset)")
+    if not x_admin_token or not hmac.compare_digest(x_admin_token, token):
+        raise HTTPException(401, detail="bad or missing X-Admin-Token")
+    r = _find(alert_id)
+    alert = _row_to_alert(r, full=True)
+    alert["shap"] = _json(r, "shap")
+    cfg = _scenarios_cfg()
+    scenario = next((s for s in cfg["scenarios"] if s["id"] == alert["scenario_id"]), None)
+    if scenario is None:
+        raise HTTPException(409, detail=f"scenario {alert['scenario_id']!r} not in deployed config")
+    llm = _llm()
+    gc = sys.modules["sentinel_explain.groq_client"]
+    cache = gc.NarrationCache(_state_dir() / "narration_cache.sqlite")
+    try:
+        state = llm.RunState(llm.narration_config(cfg), cache)
+        llm.enrich_alert(alert, scenario, state=state, force=True)
+    finally:
+        cache.close()
+    if alert["explanation_source"] != "llm":
+        # don't replace a good pipeline narration with a template
+        raise HTTPException(502, detail={"error": "LLM narration failed; existing text kept",
+                                          "narration": alert.get("narration")})
+    rec ={k: alert[k] for k in NARRATION_FIELDS}
+    rec["regenerated_at"] = datetime.now(DUBAI).isoformat(timespec="seconds")
+    _save_override(alert_id, rec)
+    return _envelope(alert_id=alert_id, **rec)
 
 
 class AckBody(BaseModel):
