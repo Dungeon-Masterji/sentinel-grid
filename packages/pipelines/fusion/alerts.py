@@ -265,15 +265,19 @@ def _explain(alert: dict, sc: dict, ctx: dict | None, prior: dict, cell: str,
             alert["shap_severity"] = payload
 
 
-def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, cfg: dict,
-                 as_of: pd.Timestamp, surrogates: dict | None = None) -> list[dict]:
-    hours = int(cfg.get("fusion", {}).get("dedupe_window_hours", 6))
-    scen = {s["id"]: s for s in cfg["scenarios"]}
-    sig_meta = cfg["signals"]
-    unit_by_h3 = units.set_index("h3")
-    fr = frame.set_index(["unit_h3", "ts_utc"])
-    rank = {s: i for i, s in enumerate(SEVERITIES)}
-    alerts = []
+SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
+
+
+def alert_id(scenario_id: str, cell: str, window_start) -> str:
+    return str(uuid.uuid5(ALERT_NS, f"{scenario_id}|{cell}|{_iso(window_start)}"))
+
+
+def alert_groups(fused: pd.DataFrame, as_of: pd.Timestamp, hours: int):
+    """THE alerting rule, shared by build_alerts and the backtest replay.
+
+    Yields (scenario_id, cell, window_start, expires_at, group_rows, peak_row, severity)
+    for every scenario + hex with a severity in the previous or current ``hours``-hour
+    UTC window that has not expired at ``as_of``."""
     f = fused[fused["severity"].notna() & (fused["ts_utc"] <= as_of)]
     for (w0, w1) in _window_bounds(as_of, hours):
         expires = w1 + pd.Timedelta(hours=hours)
@@ -281,66 +285,84 @@ def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, 
             continue
         win = f[(f["ts_utc"] >= w0) & (f["ts_utc"] < w1)]
         for (sid, cell), g in win.groupby(["scenario_id", "unit_h3"]):
-            sc = scen[sid]
             peak = g.loc[g["mean"].astype(float).idxmax()]
-            sev = max(g["severity"], key=lambda s: rank[s])
-            weights = {s["name"]: float(s["weight"]) for s in sc["signals"]}
-            row = fr.loc[(cell, peak["ts_utc"])]
-            scores = {k: row.get(f"{k}__score", np.nan) for k in weights}
-            details = {}
-            u = unit_by_h3.loc[cell]
-            for k, w in weights.items():
-                pillar = sig_meta[k]["pillar"]
-                details[k] = {
-                    "pillar": pillar, "weight": w, "unit": sig_meta[k].get("unit"),
-                    "label": sig_meta[k].get("label"),
-                    "value": _num(row.get(f"{k}__value")), "baseline": _num(row.get(f"{k}__baseline")),
-                    "z": _num(row.get(f"{k}__z")), "score": _num(row.get(f"{k}__score")),
-                    "suppressed": bool(row.get(f"{k}__suppressed", True)) if pd.notna(row.get(f"{k}__suppressed")) else True,
-                    "source": {"env": f"station {u['env_station']} ({u['env_distance_km']} km)",
-                               "occ": "site roster (synthetic)",
-                               "clin": f"{u['clinical_city']} catchment"}[pillar],
-                }
-            owner = sc["action_owner"] if sev != "warning" else sc.get("escalation_owner", sc["action_owner"])
-            prior = contributions(scores, weights) or {
-                k: round(100 * w / sum(weights.values()), 1) for k, w in weights.items()}
-            alert = {
-                "id": str(uuid.uuid5(ALERT_NS, f"{sid}|{cell}|{_iso(w0)}")),
-                "scenario_id": sid,
-                "scenario_label": sc["label"],
-                "severity": sev,
-                "h3_cell": cell,
-                "sites_affected": list(u["site_ids"]),
-                "site_names": list(u["site_names"]),
-                "emirates": list(u["emirates"]),
-                "clinical_catchment": u["clinical_city"],
-                "score": round(float(peak["mean"]), 4),
-                "credible_interval": [round(float(peak["ci_low"]), 4), round(float(peak["ci_high"]), 4)],
-                "coverage": round(float(peak["coverage"]), 3),
-                "drivers": prior,
-                "driver_details": details,
-                "created_at": _iso(g["ts_utc"].min()),
-                "peak_at": _iso(peak["ts_utc"]),
-                "window_start": _iso(w0),
-                "expires_at": _iso(expires),
-                "as_of": _iso(as_of),
-                "action_owner": owner,
-                "recommended_actions": list(sc["recommended_actions"][sev]),
-                "hex_boundary": hex_boundary_geojson(cell),
-            }
-            _explain(alert, sc, (surrogates or {}).get(sid), prior, cell, peak["ts_utc"], cfg)
-            alert["driver_onsets"] = _onsets(fr, cell, peak["ts_utc"], list(weights))
-            alert["explanation_template"] = narrate_alert_template(alert)
-            alerts.append(alert)
-    # The groupby guarantees one alert per scenario per hex per window. A previous-window
-    # alert stays active until it expires, unless the current window already has its own
-    # alert for that scenario + hex (then the newer one supersedes it).
-    newest = {}
+            sev = max(g["severity"], key=lambda s: SEVERITY_RANK[s])
+            yield sid, cell, w0, expires, g, peak, sev
+
+
+def newest_per_key(alerts: list[dict]) -> list[dict]:
+    """A previous-window alert stays active until it expires, unless the current window
+    already has its own alert for that scenario + hex (the newer one supersedes it)."""
+    newest: dict = {}
     for a in alerts:
         k = (a["scenario_id"], a["h3_cell"])
         if k not in newest or a["window_start"] > newest[k]["window_start"]:
             newest[k] = a
-    alerts = sorted(newest.values(), key=lambda a: (-rank[a["severity"]], -a["score"], a["window_start"]))
+    return list(newest.values())
+
+
+def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, cfg: dict,
+                 as_of: pd.Timestamp, surrogates: dict | None = None) -> list[dict]:
+    hours = int(cfg.get("fusion", {}).get("dedupe_window_hours", 6))
+    scen = {s["id"]: s for s in cfg["scenarios"]}
+    sig_meta = cfg["signals"]
+    unit_by_h3 = units.set_index("h3")
+    fr = frame.set_index(["unit_h3", "ts_utc"])
+    rank = SEVERITY_RANK
+    alerts = []
+    for sid, cell, w0, expires, g, peak, sev in alert_groups(fused, as_of, hours):
+        sc = scen[sid]
+        weights = {s["name"]: float(s["weight"]) for s in sc["signals"]}
+        row = fr.loc[(cell, peak["ts_utc"])]
+        scores = {k: row.get(f"{k}__score", np.nan) for k in weights}
+        details = {}
+        u = unit_by_h3.loc[cell]
+        for k, w in weights.items():
+            pillar = sig_meta[k]["pillar"]
+            details[k] = {
+                "pillar": pillar, "weight": w, "unit": sig_meta[k].get("unit"),
+                "label": sig_meta[k].get("label"),
+                "value": _num(row.get(f"{k}__value")), "baseline": _num(row.get(f"{k}__baseline")),
+                "z": _num(row.get(f"{k}__z")), "score": _num(row.get(f"{k}__score")),
+                "suppressed": bool(row.get(f"{k}__suppressed", True)) if pd.notna(row.get(f"{k}__suppressed")) else True,
+                "source": {"env": f"station {u['env_station']} ({u['env_distance_km']} km)",
+                           "occ": "site roster (synthetic)",
+                           "clin": f"{u['clinical_city']} catchment"}[pillar],
+            }
+        owner = sc["action_owner"] if sev != "warning" else sc.get("escalation_owner", sc["action_owner"])
+        prior = contributions(scores, weights) or {
+            k: round(100 * w / sum(weights.values()), 1) for k, w in weights.items()}
+        alert = {
+            "id": alert_id(sid, cell, w0),
+            "scenario_id": sid,
+            "scenario_label": sc["label"],
+            "severity": sev,
+            "h3_cell": cell,
+            "sites_affected": list(u["site_ids"]),
+            "site_names": list(u["site_names"]),
+            "emirates": list(u["emirates"]),
+            "clinical_catchment": u["clinical_city"],
+            "score": round(float(peak["mean"]), 4),
+            "credible_interval": [round(float(peak["ci_low"]), 4), round(float(peak["ci_high"]), 4)],
+            "coverage": round(float(peak["coverage"]), 3),
+            "drivers": prior,
+            "driver_details": details,
+            "created_at": _iso(g["ts_utc"].min()),
+            "peak_at": _iso(peak["ts_utc"]),
+            "window_start": _iso(w0),
+            "expires_at": _iso(expires),
+            "as_of": _iso(as_of),
+            "action_owner": owner,
+            "recommended_actions": list(sc["recommended_actions"][sev]),
+            "hex_boundary": hex_boundary_geojson(cell),
+        }
+        _explain(alert, sc, (surrogates or {}).get(sid), prior, cell, peak["ts_utc"], cfg)
+        alert["driver_onsets"] = _onsets(fr, cell, peak["ts_utc"], list(weights))
+        alert["explanation_template"] = narrate_alert_template(alert)
+        alerts.append(alert)
+    # The groupby guarantees one alert per scenario per hex per window.
+    alerts = sorted(newest_per_key(alerts),
+                    key=lambda a: (-rank[a["severity"]], -a["score"], a["window_start"]))
     return alerts
 
 

@@ -1,0 +1,172 @@
+# Ground-truth UAE events for the backtest (packages/pipelines/backtest).
+#
+# Times are Asia/Dubai (+04:00). Each event cites a public source. Where the brief and
+# the official record disagree, the record wins and the event says so in `notes`.
+#
+# affected_hexes: "auto" = every fusion unit (site hex) in affected_emirates. That is
+# deliberately broad: all 15 sites are in Abu Dhabi or Dubai, none in Al Ain or deep
+# Al Dhafra, so an Al Ain heatwave can only be matched at emirate level. A list of
+# H3 res-7 cells overrides it.
+#
+# event_type -> scenarios that are EXPECTED to catch it (sensitivity / PPV use this map;
+# the coverage matrix scores every scenario against every event type regardless).
+version: 1
+
+scenario_map:
+  heatwave: [heat-stress-cluster]
+  ramadan_stress: [heat-stress-cluster]
+  dust_storm: [respiratory-dust-event]
+  pollution_episode: [respiratory-dust-event]
+  heat_wave_combined_with_dust: [heat-stress-cluster, respiratory-dust-event]
+  flood: [respiratory-dust-event, infectious-cluster-signal]   # no flood scenario exists; plausibility only
+  infectious_cluster: [infectious-cluster-signal]              # no real-world events listed (see methodology)
+
+matching:
+  lead_window_hours: 72     # an alert up to 72 h before event start counts as an early warning
+  grace_hours: 12           # ... and up to 12 h after event end
+  calibration_bins: 10
+
+events:
+  # ---------------------------------------------------------------- heatwaves
+  - id: heat-2023-07-15
+    label: "First 50 °C days of 2023 (Sweihan / Al Dhafra)"
+    event_type: heatwave
+    start_time: "2023-07-14T00:00:00+04:00"
+    end_time: "2023-07-17T23:59:59+04:00"
+    peak_time: "2023-07-15T14:00:00+04:00"
+    affected_emirates: [Abu Dhabi]
+    affected_hexes: auto
+    severity_truth: severe
+    peak_value: "50.1 °C (NCM)"
+    source_url: https://www.thenationalnews.com/uae/2023/07/16/uae-weather-temperatures-cross-50c-for-the-first-time-in-2023
+    notes: Outlets disagree on the station (Sweihan vs Bada Dafas, Al Dhafra).
+
+  - id: heat-2024-06-15
+    label: "June 2024 heatwave, Al Ain"
+    event_type: heatwave
+    start_time: "2024-06-15T00:00:00+04:00"
+    end_time: "2024-06-20T23:59:59+04:00"
+    peak_time: "2024-06-16T14:00:00+04:00"
+    affected_emirates: [Abu Dhabi]
+    affected_hexes: auto
+    severity_truth: severe
+    peak_value: "49.4 °C Sweihan, Al Ain (NCM, 16 June)"
+    source_url: https://whatson.ae/2024/06/uae-records-hottest-day-of-the-year-with-temperatures-reaching-49-4c/
+    notes: >
+      The brief quotes a 50.6 °C peak. That figure traces to a photo of a roadside display
+      in Al Shawamekh, not an NCM record; the official peak in 15-20 June was 49.4 °C.
+      ERA5 (what the backtest sees) peaks at 47.7 °C air temperature over Al Ain.
+
+  - id: heat-2024-06-21
+    label: "Late-June 2024 heat (Mezaira 49.9 °C, Um Azimul 50.3 °C)"
+    event_type: heatwave
+    start_time: "2024-06-21T00:00:00+04:00"
+    end_time: "2024-06-25T23:59:59+04:00"
+    peak_time: "2024-06-25T14:00:00+04:00"
+    affected_emirates: [Abu Dhabi]
+    affected_hexes: auto
+    severity_truth: severe
+    peak_value: "50.3 °C Um Azimul, Al Ain (NCM, 25 June)"
+    source_url: https://www.thenationalnews.com/news/uae/2024/06/26/uae-weather-temperatures-top-50c-but-rain-on-the-way
+
+  - id: heat-2024-07-09
+    label: "July 2024 50.8 °C (Al Shawamekh, Sweihan)"
+    event_type: heatwave
+    start_time: "2024-07-08T00:00:00+04:00"
+    end_time: "2024-07-10T23:59:59+04:00"
+    peak_time: "2024-07-09T15:45:00+04:00"
+    affected_emirates: [Abu Dhabi]
+    affected_hexes: auto
+    severity_truth: severe
+    peak_value: "50.8 °C (NCM, 9 July)"
+    source_url: https://gulfbusiness.com/uae-weather-50-c-temperatures-hail-rain-showers/
+
+  # ---------------------------------------------------------------- flood
+  - id: flood-2024-04-16
+    label: "April 2024 floods, heaviest rain since records began (1949)"
+    event_type: flood
+    start_time: "2024-04-15T18:00:00+04:00"
+    end_time: "2024-04-17T23:59:59+04:00"
+    peak_time: "2024-04-16T15:00:00+04:00"
+    affected_emirates: [Dubai, Abu Dhabi]
+    affected_hexes: auto
+    severity_truth: severe
+    peak_value: "254 mm in <24 h at Khatm Al Shakla, Al Ain (NCM)"
+    source_url: https://wam.ae/en/article/13vbuq9-uae-witness-largest-rainfall-over-past-years
+    notes: >
+      No scenario models floods. Mapped to the respiratory and infectious scenarios as a
+      plausibility check only (damp/mould exposure, disrupted care); a miss is expected.
+
+  # ---------------------------------------------------------------- dust
+  - id: dust-2023-01-10
+    label: "Dust storm warning, winds to 45 km/h"
+    event_type: dust_storm
+    start_time: "2023-01-10T00:00:00+04:00"
+    end_time: "2023-01-11T12:00:00+04:00"
+    peak_time: "2023-01-10T12:00:00+04:00"
+    affected_emirates: [Abu Dhabi, Dubai]
+    affected_hexes: auto
+    severity_truth: moderate
+    source_url: https://thenational-the-national-prod.cdn.arcpublishing.com/uae/2023/01/10/uae-weather-dust-storm-warning-as-winds-hit-45kph
+
+  - id: dust-2023-03-08
+    label: "Yellow dust alert, visibility 1,000 m at Al Minhad"
+    event_type: dust_storm
+    start_time: "2023-03-08T03:00:00+04:00"
+    end_time: "2023-03-08T20:00:00+04:00"
+    peak_time: "2023-03-08T06:00:00+04:00"
+    affected_emirates: [Abu Dhabi, Dubai]
+    affected_hexes: auto
+    severity_truth: moderate
+    source_url: https://www.thenationalnews.com/uae/2023/03/08/uae-weather-dust-storm-warning-issued-to-motorists
+
+  - id: dust-2024-03-20
+    label: "NCM dust alert 10:30-16:00"
+    event_type: dust_storm
+    start_time: "2024-03-20T10:30:00+04:00"
+    end_time: "2024-03-20T16:00:00+04:00"
+    peak_time: "2024-03-20T13:00:00+04:00"
+    affected_emirates: [Abu Dhabi, Dubai]
+    affected_hexes: auto
+    severity_truth: moderate
+    source_url: https://theglobalfilipinomagazine.com/?p=11681
+    notes: Secondary source quoting the NCM alert; the NCM post itself is on X.
+
+  - id: dust-2024-07-28
+    label: "Dust, visibility <2,000 m, Madinat Zayed (Al Dhafra)"
+    event_type: dust_storm
+    start_time: "2024-07-28T06:00:00+04:00"
+    end_time: "2024-07-28T20:00:00+04:00"
+    peak_time: "2024-07-28T12:00:00+04:00"
+    affected_emirates: [Abu Dhabi]
+    affected_hexes: auto
+    severity_truth: minor
+    source_url: https://en.aletihad.ae/news/uae/4503363/ncm-warns-of-dust--reduced-horizontal-visibility-in-madinat
+    notes: Localised to Al Dhafra; emirate-level matching makes this generous.
+
+  - id: dust-2024-11-05
+    label: "Dust and sand storm, Dubai and Abu Dhabi, 45 km/h winds"
+    event_type: dust_storm
+    start_time: "2024-11-05T08:00:00+04:00"
+    end_time: "2024-11-05T18:00:00+04:00"
+    peak_time: "2024-11-05T10:00:00+04:00"
+    affected_emirates: [Abu Dhabi, Dubai]
+    affected_hexes: auto
+    severity_truth: moderate
+    source_url: https://khaleejtimes.com/uae/45km-winds-low-visibility-uaes-ncm-issues-dust-storm-alert-for-dubai-abu-dhabi
+
+  # ---------------------------------------------------------------- Ramadan
+  - id: ramadan-2024
+    label: "Ramadan 1445 (fasting + outdoor work)"
+    event_type: ramadan_stress
+    start_time: "2024-03-11T00:00:00+04:00"
+    end_time: "2024-04-09T23:59:59+04:00"
+    peak_time: "2024-04-05T14:00:00+04:00"
+    affected_emirates: [Abu Dhabi, Dubai]
+    affected_hexes: auto
+    severity_truth: minor
+    source_url: https://gulfnews.com/uae/eid-al-fitr-2024-uae-confirms-first-day-of-eid-1.1712511876281
+    notes: >
+      A month-long exposure, not an acute event. March/April apparent temperatures rarely
+      pass the 38 °C heat floor, and no signal models fasting, so the heat scenario is not
+      expected to fire. Kept in to show that honestly rather than drop it.

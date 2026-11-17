@@ -132,13 +132,22 @@ def run_synthea_uae(population: int = 10000, seed: int = 42,
                     output_dir: Path = Path("data/raw/clinical"), *,
                     synthea_dir: Path | None = None,
                     reference_date: date | None = None,
-                    timeout: float | None = None) -> Path:
+                    timeout: float | None = None,
+                    febrile_start_year: int | None = None) -> Path:
     """Generate a synthetic UAE population and return the FHIR export directory.
 
     Simulation runs up to the end of ``reference_date`` (default: today, UTC), so a
     given (seed, reference_date) pair is reproducible and the current day is complete.
+    ``febrile_start_year`` moves the febrile module's start-year guard (2025 in
+    configs/synthea) for this run only, e.g. for the 2023-2024 backtest; the configs
+    copy is untouched and the next plain run re-installs the original.
     """
     d = install_uae_resources(synthea_dir)
+    if febrile_start_year is not None:
+        mod = d / "src" / "main" / "resources" / "modules" / "uae_febrile_illness.json"
+        m = json.loads(mod.read_text())
+        m["states"]["Season_Guard"]["allow"]["year"] = int(febrile_start_year)
+        mod.write_text(json.dumps(m, indent=2))
     output_dir = Path(output_dir).resolve()
     if output_dir.exists():
         # Synthea appends to existing export dirs; start clean for reproducibility.

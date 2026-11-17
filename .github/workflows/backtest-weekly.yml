@@ -1,0 +1,119 @@
+# Weekly backtest of the live detector against 2023-2024 UAE ground-truth events.
+#
+# 1. Restore (or build) the historical signal panel: ERA5 + CAMS weather, a simulated
+#    workforce driven by it, and one Synthea run weather-coupled to it. Past months
+#    never change, so they are cached on a key of the code + configs that produce them.
+# 2. Replay every 15-minute tick of 2023-2024 with zero lookahead
+#    (packages/pipelines/backtest/replay.py) and score it against
+#    configs/ground_truth_events.yaml.
+# 3. Force-push scorecard/events/calibration/traces as one orphan commit to
+#    `data/processed/backtest`; the API (GET /api/backtest/*) re-pulls hourly.
+name: Backtest (weekly)
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"     # Sundays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Replay start (YYYY-MM-DD)"
+        default: "2023-01-01"
+      end:
+        description: "Replay end (YYYY-MM-DD, inclusive)"
+        default: "2024-12-31"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backtest
+  cancel-in-progress: false
+
+env:
+  DATA_BRANCH: data/processed/backtest
+  SYNTHEA_REPO: https://github.com/synthetichealth/synthea.git
+  SYNTHEA_REF: bd8a52ba0a54ad8c6a1004b74787a14d8c25dbcc
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-fusion.txt
+
+      - name: Install deps
+        run: python -m pip install -r requirements-fusion.txt
+
+      - name: Restore historical panel
+        id: hist
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/processed/backtest/*.parquet
+            data/raw/backtest/clinical_events.parquet
+            data/raw/backtest/clinical_patients.parquet
+          key: backtest-history-${{ inputs.start || '2023-01-01' }}-${{ inputs.end || '2024-12-31' }}-${{ hashFiles('packages/pipelines/backtest/history.py', 'packages/pipelines/synth/**', 'packages/pipelines/fusion/signals.py', 'packages/pipelines/fusion/spatial.py', 'configs/uae_sites.yaml', 'configs/workforce_mix.yaml', 'configs/synthea/**', 'configs/scenarios.yaml') }}
+
+      - name: Set up Java 17 (Synthea, only if the panel must be rebuilt)
+        if: steps.hist.outputs.cache-hit != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Clone Synthea (pinned)
+        if: steps.hist.outputs.cache-hit != 'true'
+        run: |
+          git init synthea
+          git -C synthea remote add origin "$SYNTHEA_REPO"
+          git -C synthea fetch --depth 1 origin "$SYNTHEA_REF"
+          git -C synthea checkout --detach FETCH_HEAD
+
+      - name: Backtest unit tests (zero lookahead)
+        run: python -m pytest -q tests/test_backtest.py
+
+      - name: Run backtest
+        env:
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}   # optional PM gap-filler
+          TZ: UTC
+        run: |
+          set -euo pipefail
+          start=$(date +%s)
+          python -m packages.pipelines.backtest.run \
+            --start "${{ inputs.start || '2023-01-01' }}" \
+            --end "${{ inputs.end || '2024-12-31' }}" \
+            --out data/processed/backtest/results/results.parquet --workers 4
+          echo "backtest wall time: $(( $(date +%s) - start ))s"
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-${{ github.run_id }}
+          path: data/processed/backtest/results/
+          retention-days: 30
+
+      - name: Publish to data branch
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          git checkout --orphan backtest-data-tmp
+          git rm -rq --cached .
+          git add -f data/processed/backtest/results/scorecard.json \
+                     data/processed/backtest/results/events.json \
+                     data/processed/backtest/results/calibration.json \
+                     data/processed/backtest/results/event_traces.parquet \
+                     data/processed/backtest/results/results.parquet
+          git commit -qm "data: backtest ${stamp}"
+          git push --force origin "HEAD:refs/heads/${DATA_BRANCH}"

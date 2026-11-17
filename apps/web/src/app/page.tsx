@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -97,10 +98,15 @@ export default function Home() {
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Sentinel Grid</h1>
             <p className="text-sm text-slate-500">Tri-signal early warning · UAE</p>
           </div>
-          <Badge variant="outline" className="gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live
-          </Badge>
+          <div className="flex items-center gap-4">
+            <Link href="/backtest" className="text-sm font-medium text-slate-700 hover:underline dark:text-slate-200">
+              Backtest
+            </Link>
+            <Badge variant="outline" className="gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </Badge>
+          </div>
         </div>
       </header>
 

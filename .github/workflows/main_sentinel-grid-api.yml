@@ -79,6 +79,21 @@ jobs:
             echo "::warning::no $branch branch yet; deploying without alerts"
           fi
 
+      - name: Pull backtest results from data branch
+        # Written weekly by backtest-weekly.yml; the API also re-pulls them hourly.
+        run: |
+          set -euo pipefail
+          branch=data/processed/backtest
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            git fetch --depth 1 origin "$branch"
+            mkdir -p apps/api/data/backtest
+            for f in scorecard.json events.json calibration.json event_traces.parquet; do
+              git show "FETCH_HEAD:data/processed/backtest/results/$f" > "apps/api/data/backtest/$f"
+            done
+          else
+            echo "::warning::no $branch branch yet; deploying without backtest results"
+          fi
+
       - name: Build occupational data (synthetic workforce + Open-Meteo)
         # Pulls 90 days of hourly met + CAMS particulates for the 15 sites in
         # configs/uae_sites.yaml, regenerates the seeded synthetic workforce and

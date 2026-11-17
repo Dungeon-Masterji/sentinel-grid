@@ -128,3 +128,29 @@
     @apply font-sans;
   }
 }
+/* Backtest charts (dataviz reference palette: categorical slots 1-3 validate all-pairs
+   in both modes; sequential = one blue ramp). Dark values are the selected dark steps. */
+:root {
+  --bt-scn-1: #2a78d6;   /* heat-stress-cluster */
+  --bt-scn-2: #eb6834;   /* respiratory-dust-event */
+  --bt-scn-3: #1baf7a;   /* infectious-cluster-signal */
+  --bt-event-band: rgba(82, 81, 78, 0.12);
+  --bt-seq-0: #cde2fb;
+  --bt-seq-1: #9ec5f4;
+  --bt-seq-2: #6da7ec;
+  --bt-seq-3: #3987e5;
+  --bt-seq-4: #256abf;
+  --bt-seq-5: #184f95;
+}
+.dark {
+  --bt-scn-1: #3987e5;
+  --bt-scn-2: #d95926;
+  --bt-scn-3: #199e70;
+  --bt-event-band: rgba(240, 239, 236, 0.10);
+  --bt-seq-0: #104281;
+  --bt-seq-1: #184f95;
+  --bt-seq-2: #1c5cab;
+  --bt-seq-3: #2a78d6;
+  --bt-seq-4: #5598e7;
+  --bt-seq-5: #9ec5f4;
+}
