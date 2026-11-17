@@ -23,6 +23,14 @@ acknowledge an alert under any name. /refresh is protected only by a shared secr
 (X-Refresh-Secret == $ALERTS_REFRESH_SECRET), and only re-pulls public files. Put real
 auth (Entra ID / signed tokens) in front of both before production use.
 
+Explainability (Chunk 4): every alert carries
+  drivers               SHAP shares (%) from a LightGBM surrogate of the fused score
+  drivers_prior         the static fusion-weight shares (%), for comparison
+  drivers_method        "shap" or "fusion_weights" (fallback when no surrogate could be fitted)
+  explanation_template  one-paragraph plain-English summary
+GET /{id}/shap_waterfall returns the raw SHAP values for client-side waterfall charts.
+SHAP is computed in the pipeline; the API only reads it (no lightgbm/shap at runtime).
+
 Times in responses are Asia/Dubai (ISO-8601, +04:00). Storage is UTC.
 """
 from __future__ import annotations
@@ -53,7 +61,8 @@ DEFAULT_SOURCE = ("https://raw.githubusercontent.com/Dungeon-Masterji/sentinel-g
 NOTICE = ("Fused from synthetic clinical (Synthea) and synthetic workforce data plus real "
           "environmental observations. Decision support only.")
 SEVERITY_RANK = {"watch": 0, "advisory": 1, "warning": 2}
-JSON_FIELDS = ("drivers", "driver_details", "hex_boundary")
+JSON_FIELDS = ("drivers", "drivers_prior", "drivers_severity", "driver_details",
+               "driver_onsets", "shap", "shap_severity", "shap_disagreements", "hex_boundary")
 
 
 def _on_azure() -> bool:
@@ -199,7 +208,20 @@ def _now_utc():
     return pd.Timestamp(datetime.now(timezone.utc))
 
 
+def _json(r, col, default=None):
+    """Decode a JSON column; tolerate parquet files written before the column existed."""
+    v = r.get(col) if hasattr(r, "get") else None
+    if v is None or (isinstance(v, float) and v != v):
+        return default
+    try:
+        out = json.loads(v)
+    except (TypeError, ValueError):
+        return default
+    return default if out is None else out
+
+
 def _row_to_alert(r, *, full: bool = False) -> dict:
+    drivers = _json(r, "drivers", {})
     d = {
         "id": r["id"], "scenario_id": r["scenario_id"], "scenario_label": r["scenario_label"],
         "severity": r["severity"], "h3_cell": r["h3_cell"],
@@ -207,13 +229,24 @@ def _row_to_alert(r, *, full: bool = False) -> dict:
         "emirates": list(r["emirates"]), "clinical_catchment": r["clinical_catchment"],
         "score": float(r["score"]), "credible_interval": [float(x) for x in r["credible_interval"]],
         "coverage": float(r["coverage"]),
-        "drivers": json.loads(r["drivers"]), "driver_details": json.loads(r["driver_details"]),
+        "drivers": drivers, "drivers_prior": _json(r, "drivers_prior", drivers),
+        "drivers_method": (r.get("drivers_method") or "fusion_weights"),
+        "explanation_template": r.get("explanation_template"),
+        "driver_details": _json(r, "driver_details", {}),
         "created_at": _local(r["created_at"]), "peak_at": _local(r["peak_at"]),
         "window_start": _local(r["window_start"]), "expires_at": _local(r["expires_at"]),
         "as_of": _local(r["as_of"]), "action_owner": r["action_owner"],
         "recommended_actions": list(r["recommended_actions"]),
     }
     if full:
+        shap = _json(r, "shap")
+        d["drivers_severity"] = _json(r, "drivers_severity")
+        d["driver_onsets"] = _json(r, "driver_onsets", {})
+        d["shap_disagreements"] = _json(r, "shap_disagreements", [])
+        d["shap"] = None if shap is None else {
+            "signals": shap.get("signals"), "base_value": shap.get("base_value"),
+            "prediction": shap.get("prediction"), "model": shap.get("model"),
+            "background_rows": shap.get("background_rows")}
         d["footprint"] = {"type": "Feature", "geometry": json.loads(r["hex_boundary"]),
                           "properties": {"h3_cell": r["h3_cell"], "resolution": 7}}
     return d
@@ -302,6 +335,48 @@ def alert_detail(alert_id: str):
     a["acks"] = store.acks_for(alert_id)
     a["expired"] = bool(r["expires_at"] <= _now_utc())
     return _envelope(alert=a)
+
+
+@router.get("/{alert_id}/shap_waterfall")
+def shap_waterfall(alert_id: str,
+                   level: str = Query("signal", description="signal (lags collapsed) | feature (raw columns)"),
+                   task: str = Query("regression", description="regression (fused score) | classification (log-odds of firing)")):
+    """Raw SHAP values for a client-side waterfall: base_value -> ... -> prediction.
+
+    Steps are ordered by |shap|. Each has feature, shap, value (the input), baseline (the
+    running total before the step) and cumulative (after it)."""
+    if level not in ("signal", "feature"):
+        raise HTTPException(422, detail="level must be signal or feature")
+    if task not in ("regression", "classification"):
+        raise HTTPException(422, detail="task must be regression or classification")
+    r = _find(alert_id)
+    payload = _json(r, "shap" if task == "regression" else "shap_severity")
+    if not payload:
+        raise HTTPException(404, detail={"error": f"no SHAP ({task}) for this alert",
+                                          "drivers_method": r.get("drivers_method") or "fusion_weights"})
+    feats = payload.get("features") or {}
+    xs = payload.get("x") or {}
+    details = _json(r, "driver_details", {})
+    if level == "signal":
+        items: dict[str, float] = {}
+        for k, v in feats.items():
+            sig = k.split("__", 1)[0]
+            items[sig] = items.get(sig, 0.0) + float(v)
+        values = {k: xs.get(f"{k}__value") for k in items}
+    else:
+        items = {k: float(v) for k, v in feats.items()}
+        values = {k: xs.get(k) for k in items}
+    run = float(payload["base_value"])
+    steps = []
+    for k, v in sorted(items.items(), key=lambda kv: -abs(kv[1])):
+        sig = k.split("__", 1)[0]
+        steps.append({"feature": k, "signal": sig, "pillar": (details.get(sig) or {}).get("pillar"),
+                      "shap": round(v, 6), "value": values[k], "baseline": round(run, 6),
+                      "cumulative": round(run + v, 6)})
+        run += v
+    return _envelope(alert_id=alert_id, task=task, level=level, output=payload.get("output"),
+                     base_value=payload["base_value"], prediction=round(run, 6),
+                     model=payload.get("model"), steps=steps)
 
 
 class AckBody(BaseModel):

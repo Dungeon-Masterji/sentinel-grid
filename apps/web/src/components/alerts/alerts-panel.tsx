@@ -40,6 +40,9 @@ function AlertCard({ a, onOpen }: { a: AlertItem; onOpen: () => void }) {
               <UserRound className="h-3 w-3" />
               {a.action_owner}
             </span>
+            <span title={a.drivers_method === "shap" ? "Driver shares from SHAP on a surrogate model" : "Driver shares from fusion weights (no surrogate for this hex)"}>
+              {a.drivers_method === "shap" ? "SHAP drivers" : "weight drivers"}
+            </span>
             <span className="tabular-nums">
               score {a.score.toFixed(2)} [{a.credible_interval[0].toFixed(2)}–{a.credible_interval[1].toFixed(2)}]
             </span>

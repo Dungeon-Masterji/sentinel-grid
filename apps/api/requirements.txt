@@ -7,3 +7,8 @@ python-dotenv
 requests
 httpx
 pydantic==2.9.2
+# lightgbm / shap are deliberately NOT installed here. SHAP is computed by the pipeline
+# (requirements-fusion.txt, alert-refresh.yml) and stored in active.parquet; the API only
+# reads it. Both have manylinux wheels (lightgbm 4.7.0: manylinux_2_28 only, which this
+# deploy's --platform manylinux2014 flag would reject), but with numba/llvmlite/sklearn they
+# add ~360 MB, and the F1 app already uses 531 MB of its 1 GB storage quota.

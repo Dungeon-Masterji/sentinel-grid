@@ -1,13 +1,13 @@
 "use client";
 
-import { PILLAR, signalLabel, type DriverDetail, type Pillar } from "@/lib/alerts";
+import { PILLAR, pillarFill, signalLabel, type DriverDetail, type Pillar } from "@/lib/alerts";
 
-type Segment = { key: string; pct: number; pillar: Pillar; color: string };
+type Segment = { key: string; pct: number; pillar: Pillar; fill: string };
 
 /**
  * Horizontal stacked bar of driver contributions (percent, summing to ~100).
- * Today the values are weight × anomaly-score shares from the fusion detector; Chunk 4
- * passes SHAP attributions in the same `drivers` shape: no component change needed.
+ * Values are SHAP shares from the surrogate model (or fusion-weight shares as a fallback).
+ * Colour = pillar; a second signal from the same pillar is hatched.
  */
 export function DriverBar({
   drivers,
@@ -26,9 +26,8 @@ export function DriverBar({
     .sort((a, b) => b[1] - a[1])
     .map(([key, pct]) => {
       const pillar = (details?.[key]?.pillar ?? "env") as Pillar;
-      const shades = PILLAR[pillar].shades;
-      const color = shades[used[pillar]++ % shades.length];
-      return { key, pct, pillar, color };
+      const fill = pillarFill(pillar, used[pillar]++);
+      return { key, pct, pillar, fill };
     });
   const total = segs.reduce((s, x) => s + x.pct, 0) || 1;
 
@@ -43,7 +42,7 @@ export function DriverBar({
           <div
             key={s.key}
             title={`${signalLabel(s.key)}: ${s.pct.toFixed(0)}% (${PILLAR[s.pillar].label})`}
-            style={{ width: `${(s.pct / total) * 100}%`, background: s.color }}
+            style={{ width: `${(s.pct / total) * 100}%`, background: s.fill }}
             className={i > 0 ? "border-l-2 border-white dark:border-slate-900" : ""}
           />
         ))}
@@ -52,7 +51,7 @@ export function DriverBar({
         <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400">
           {segs.map((s) => (
             <span key={s.key} className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+              <span className="h-2 w-2 rounded-full" style={{ background: s.fill }} />
               {signalLabel(s.key)}
               <span className="tabular-nums text-slate-500">{s.pct.toFixed(0)}%</span>
             </span>

@@ -29,7 +29,6 @@ log = logging.getLogger("sentinel.fusion.signals")
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PROCESSED = REPO_ROOT / "data" / "processed"
 CITIES_CSV = REPO_ROOT / "configs" / "synthea" / "resources" / "geography" / "uae_cities.csv"
-FEVER_SNOMED = {"386661006": "Fever (finding)"}
 
 ENV_COLUMNS = {"apparent_temp": "apparent_temp", "pm25": "pm25", "pm10": "pm10"}
 OCC_COLUMNS = {"absence_rate": "absence_rate_last_1h",
@@ -73,13 +72,13 @@ def build_units(sites: pd.DataFrame, cfg: dict, cities: pd.DataFrame | None = No
 
 
 def _encounter_flags(events: pd.DataFrame) -> pd.DataFrame:
-    from packages.pipelines.synth.synthea_wrapper import (HEAT_SNOMED, RESPIRATORY_SNOMED,
-                                                          _encounters_with_dx)
+    from packages.pipelines.synth.synthea_wrapper import (FEBRILE_SNOMED, HEAT_SNOMED,
+                                                          RESPIRATORY_SNOMED, _encounters_with_dx)
     enc = events[events["event_type"] == "encounter"][["patient_id", "encounter_id", "event_time"]]
     enc = enc.drop_duplicates("encounter_id")
     resp = _encounters_with_dx(events, set(RESPIRATORY_SNOMED))
     heat = _encounters_with_dx(events, set(HEAT_SNOMED))
-    fever = _encounters_with_dx(events, set(FEVER_SNOMED))
+    fever = _encounters_with_dx(events, set(FEBRILE_SNOMED))
     enc = enc.assign(resp=enc["encounter_id"].isin(resp).astype(float),
                      heat=enc["encounter_id"].isin(heat).astype(float),
                      fever=enc["encounter_id"].isin(fever).astype(float))

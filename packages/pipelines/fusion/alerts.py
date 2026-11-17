@@ -13,7 +13,12 @@ generate_alerts(as_of_time, scenarios_yaml):
   5. dedupe: one alert per scenario per hex per 6-hour UTC window. The id is a
      deterministic uuid5 of (scenario, hex, window), so 15-minute re-runs update the
      same alert instead of creating new ones, and acknowledgements stick.
-  6. write data/processed/alerts/{active,signal_traces,fused_traces}.parquet + meta.json
+  6. explain: per scenario, a LightGBM surrogate of the fused score is explained with
+     TreeSHAP at each alert's peak hour (packages/pipelines/explain/shap_runner.py).
+     `drivers` = SHAP shares; `drivers_prior` = the static fusion-weight shares. If the
+     surrogate cannot be fitted (sparse hexes), `drivers` falls back to the prior and
+     `drivers_method` says so: an alert never ships without drivers.
+  7. write data/processed/alerts/{active,signal_traces,fused_traces}.parquet + meta.json
 
 Only the CLI entry point reads the clock; every function takes time from its caller.
 """
@@ -41,6 +46,10 @@ from packages.pipelines.fusion.config import SCENARIOS_YAML, SEVERITIES, load_sc
 from packages.pipelines.fusion.detect import detect, fit_all  # noqa: E402
 from packages.pipelines.fusion.signals import PROCESSED, build_signal_panel  # noqa: E402
 from packages.pipelines.fusion.spatial import hex_boundary_geojson  # noqa: E402
+from packages.pipelines.explain.narrate import narrate_alert_template  # noqa: E402
+from packages.pipelines.explain.shap_runner import (EXPLAIN_DIR, explain_config,  # noqa: E402
+                                                    fit_scenario_surrogates,
+                                                    per_alert_contributions)
 
 log = logging.getLogger("sentinel.fusion.alerts")
 ALERTS_DIR = PROCESSED / "alerts"
@@ -151,8 +160,106 @@ def _iso(ts) -> str:
     return pd.Timestamp(ts).tz_convert("UTC").isoformat().replace("+00:00", "Z")
 
 
+ONSET_Z = 1.0          # a driver counts as "rising" while its residual z stays above this
+
+
+def _onsets(fr: pd.DataFrame, cell: str, peak_ts: pd.Timestamp, signals: list[str]) -> dict:
+    """Start of the unbroken run of hours (within 24 h, ending at the peak) in which
+    each signal's z-score stayed above ONSET_Z; None if it was not elevated at the peak."""
+    try:
+        u = fr.loc[cell]
+    except KeyError:
+        return {}
+    u = u[(u.index > peak_ts - pd.Timedelta(hours=24)) & (u.index <= peak_ts)].sort_index()
+    out = {}
+    for sig in signals:
+        c = f"{sig}__z"
+        if c not in u:
+            out[sig] = None
+            continue
+        z = u[c].astype(float)
+        start = None
+        for ts, v in zip(z.index[::-1], z.to_numpy()[::-1]):
+            if not (np.isfinite(v) and v > ONSET_Z):
+                break
+            start = ts
+        out[sig] = _iso(start) if start is not None else None
+    return out
+
+
+def _explain(alert: dict, sc: dict, ctx: dict | None, prior: dict, cell: str,
+             peak_ts: pd.Timestamp, cfg: dict) -> None:
+    """Fill drivers / drivers_prior / shap (+ severity drivers) on ``alert`` in place.
+    SHAP wins; disagreement with the fusion weights is logged, never overridden."""
+    ecfg = explain_config(cfg)
+    weights = {s["name"]: float(s["weight"]) for s in sc["signals"]}
+    alert["drivers_prior"] = prior
+    alert["drivers_method"] = "fusion_weights"
+    alert["drivers"] = prior
+    alert["drivers_severity"] = None
+    alert["shap"] = None
+    alert["shap_disagreements"] = []
+    if not ctx:
+        return
+    try:
+        x = ctx["X"].loc[[(cell, peak_ts)]]
+    except KeyError:
+        log.warning("%s: no surrogate features for %s at %s; fusion weights used",
+                    alert["id"], cell, peak_ts)
+        return
+    for task in ("regression", "classification"):
+        fitted = ctx.get(task)
+        if fitted is None:
+            continue
+        model, bg, names = fitted
+        xa = x.reindex(columns=names).astype(float)
+        xa.index = [alert["id"]]
+        try:
+            t0 = time.perf_counter()
+            contrib, feats, base = per_alert_contributions(
+                alert["id"], model, bg, X_alerts=xa, explainer=ctx["explainers"].get(task),
+                return_raw=True)
+            ms = (time.perf_counter() - t0) * 1000
+        except Exception as e:  # noqa: BLE001 - explanation must never block an alert
+            log.warning("%s: SHAP (%s) failed: %s", alert["id"], task, e)
+            continue
+        pct = {k: round(100 * v["pct_of_total"], 1) for k, v in contrib.items()}
+        payload = {
+            "task": task,
+            "output": "fused score" if task == "regression" else "log-odds of alert firing",
+            "base_value": round(float(base), 6),
+            "prediction": round(float(base + feats.sum()), 6),
+            "signals": contrib,
+            "features": {k: round(float(v), 6) for k, v in feats.items()},
+            "x": {k: _num(v, 6) for k, v in xa.iloc[0].items()},
+            "model": {k: v for k, v in getattr(model, "sentinel_meta_", {}).items()
+                      if k in ("model_fitted_at", "n_train", "r2_holdout", "auc_holdout",
+                               "best_iteration", "reused")},
+            "background_rows": int(getattr(ctx["explainers"].get(task), "sentinel_background_rows_",
+                                           len(bg))),
+            "ms": round(ms, 2),
+        }
+        if task == "regression":
+            alert["drivers"] = pct
+            alert["drivers_method"] = "shap"
+            alert["shap"] = payload
+            for k, v in contrib.items():
+                if (weights.get(k, 0) > 0 and v["direction"] == "lowers_risk"
+                        and 100 * v["pct_of_total"] >= float(ecfg["disagreement_min_pct"])):
+                    log.warning("%s %s @ %s: SHAP says %s LOWERS risk (%.0f%% of signal) although "
+                                "its fusion weight %.2f says it raises it; keeping SHAP",
+                                sc["id"], cell, _iso(peak_ts), k, 100 * v["pct_of_total"],
+                                weights[k])
+                    alert["shap_disagreements"].append(
+                        {"signal": k, "fusion_weight": weights[k], "shap": v["shap"],
+                         "pct_of_total": v["pct_of_total"]})
+        else:
+            alert["drivers_severity"] = pct
+            alert["shap_severity"] = payload
+
+
 def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, cfg: dict,
-                 as_of: pd.Timestamp) -> list[dict]:
+                 as_of: pd.Timestamp, surrogates: dict | None = None) -> list[dict]:
     hours = int(cfg.get("fusion", {}).get("dedupe_window_hours", 6))
     scen = {s["id"]: s for s in cfg["scenarios"]}
     sig_meta = cfg["signals"]
@@ -179,6 +286,7 @@ def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, 
                 pillar = sig_meta[k]["pillar"]
                 details[k] = {
                     "pillar": pillar, "weight": w, "unit": sig_meta[k].get("unit"),
+                    "label": sig_meta[k].get("label"),
                     "value": _num(row.get(f"{k}__value")), "baseline": _num(row.get(f"{k}__baseline")),
                     "z": _num(row.get(f"{k}__z")), "score": _num(row.get(f"{k}__score")),
                     "suppressed": bool(row.get(f"{k}__suppressed", True)) if pd.notna(row.get(f"{k}__suppressed")) else True,
@@ -187,7 +295,9 @@ def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, 
                                "clin": f"{u['clinical_city']} catchment"}[pillar],
                 }
             owner = sc["action_owner"] if sev != "warning" else sc.get("escalation_owner", sc["action_owner"])
-            alerts.append({
+            prior = contributions(scores, weights) or {
+                k: round(100 * w / sum(weights.values()), 1) for k, w in weights.items()}
+            alert = {
                 "id": str(uuid.uuid5(ALERT_NS, f"{sid}|{cell}|{_iso(w0)}")),
                 "scenario_id": sid,
                 "scenario_label": sc["label"],
@@ -200,7 +310,7 @@ def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, 
                 "score": round(float(peak["mean"]), 4),
                 "credible_interval": [round(float(peak["ci_low"]), 4), round(float(peak["ci_high"]), 4)],
                 "coverage": round(float(peak["coverage"]), 3),
-                "drivers": contributions(scores, weights),
+                "drivers": prior,
                 "driver_details": details,
                 "created_at": _iso(g["ts_utc"].min()),
                 "peak_at": _iso(peak["ts_utc"]),
@@ -210,7 +320,11 @@ def build_alerts(fused: pd.DataFrame, frame: pd.DataFrame, units: pd.DataFrame, 
                 "action_owner": owner,
                 "recommended_actions": list(sc["recommended_actions"][sev]),
                 "hex_boundary": hex_boundary_geojson(cell),
-            })
+            }
+            _explain(alert, sc, (surrogates or {}).get(sid), prior, cell, peak["ts_utc"], cfg)
+            alert["driver_onsets"] = _onsets(fr, cell, peak["ts_utc"], list(weights))
+            alert["explanation_template"] = narrate_alert_template(alert)
+            alerts.append(alert)
     # The groupby guarantees one alert per scenario per hex per window. A previous-window
     # alert stays active until it expires, unless the current window already has its own
     # alert for that scenario + hex (then the newer one supersedes it).
@@ -231,15 +345,19 @@ def _num(x, nd: int = 4):
     return None if not np.isfinite(f) else round(f, nd)
 
 
-ALERT_JSON_FIELDS = ("drivers", "driver_details", "hex_boundary")
+ALERT_JSON_FIELDS = ("drivers", "drivers_prior", "drivers_severity", "driver_details",
+                     "driver_onsets", "shap", "shap_severity", "shap_disagreements",
+                     "hex_boundary")
 
 
 def alerts_frame(alerts: list[dict]) -> pd.DataFrame:
     cols = ["id", "scenario_id", "scenario_label", "severity", "h3_cell", "sites_affected",
             "site_names", "emirates", "clinical_catchment", "score", "credible_interval",
-            "coverage", "drivers", "driver_details", "created_at", "peak_at", "window_start",
+            "coverage", "drivers", "drivers_prior", "drivers_method", "drivers_severity",
+            "driver_details", "driver_onsets", "shap", "shap_severity", "shap_disagreements",
+            "explanation_template", "created_at", "peak_at", "window_start",
             "expires_at", "as_of", "action_owner", "recommended_actions", "hex_boundary"]
-    rows = [{**a, **{k: json.dumps(a[k]) for k in ALERT_JSON_FIELDS}} for a in alerts]
+    rows = [{**a, **{k: json.dumps(a.get(k)) for k in ALERT_JSON_FIELDS}} for a in alerts]
     df = pd.DataFrame(rows, columns=cols)
     for c in ("created_at", "peak_at", "window_start", "expires_at", "as_of"):
         df[c] = pd.to_datetime(df[c], utc=True)
@@ -261,6 +379,7 @@ def _write(df: pd.DataFrame, path: Path, meta: dict) -> None:
 def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | None = None,
                     processed_dir: Path = PROCESSED, out_dir: Path | None = ALERTS_DIR,
                     cache_dir: Path | None = CACHE_DIR, use_cache: bool = True,
+                    explain_dir: Path | None = EXPLAIN_DIR,
                     panel_kwargs: dict | None = None) -> list[dict]:
     """Run the full pipeline as of ``as_of_time`` and return the active alerts."""
     cfg = load_scenarios(scenarios_yaml)
@@ -276,6 +395,7 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
     timings["fit_s"] = round(time.time() - t1, 2)
     scored = detect(panel, cfg, as_of, fitted=fitted)
     frame = unit_signal_frame(scored, units, cfg)
+    explain_meta: dict = {}
     if frame.empty:
         alerts: list[dict] = []
         fused = pd.DataFrame()
@@ -285,7 +405,19 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
         t2 = time.time()
         fused = fuse_all(frame, cfg, mode=mode, rows_for_sampled=np.where(recent)[0])
         timings["fuse_s"] = round(time.time() - t2, 2)
-        alerts = build_alerts(fused, frame, units, cfg, as_of)
+        t3 = time.time()
+        surrogates = fit_scenario_surrogates(
+            frame, fused, cfg, as_of, cache_dir=explain_dir, use_cache=use_cache,
+            data_key=",".join(sorted(units["h3"])))
+        timings["surrogate_s"] = round(time.time() - t3, 2)
+        t4 = time.time()
+        alerts = build_alerts(fused, frame, units, cfg, as_of, surrogates=surrogates)
+        timings["build_explain_s"] = round(time.time() - t4, 2)
+        shap_ms = [a["shap"]["ms"] for a in alerts if a.get("shap")]
+        timings["shap_ms_max"] = round(max(shap_ms), 1) if shap_ms else None
+        explain_meta = {sid: {t: (dict(getattr(c[t][0], "sentinel_meta_", {})) if c.get(t) else None)
+                              for t in ("regression", "classification")}
+                        for sid, c in surrogates.items()}
     timings["total_s"] = round(time.time() - t0, 2)
 
     if out_dir is not None:
@@ -309,7 +441,7 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
         _write(units_out, out_dir / "units.parquet", meta)
         (out_dir / "meta.json").write_text(json.dumps(
             {"as_of": _iso(as_of), "mode": mode, "n_alerts": len(alerts), "timings": timings,
-             "notice": NOTICE}, indent=2))
+             "surrogates": explain_meta, "notice": NOTICE}, indent=2, default=str))
     log.info("as_of=%s alerts=%d timings=%s", _iso(as_of), len(alerts), timings)
     return alerts
 
@@ -329,7 +461,9 @@ def main(argv: list[str] | None = None) -> int:
     for a in alerts:
         drv = ", ".join(f"{k} {v:.0f}%" for k, v in sorted(a["drivers"].items(), key=lambda kv: -kv[1]))
         print(f"  [{a['severity']:8}] {a['scenario_id']:26} {', '.join(a['site_names'])[:44]:44} "
-              f"score {a['score']:.2f} [{a['credible_interval'][0]:.2f}, {a['credible_interval'][1]:.2f}]  {drv}")
+              f"score {a['score']:.2f} [{a['credible_interval'][0]:.2f}, {a['credible_interval'][1]:.2f}]  "
+              f"{a['drivers_method']}: {drv}")
+        print(f"             {a['explanation_template']}")
     return 0
 
 

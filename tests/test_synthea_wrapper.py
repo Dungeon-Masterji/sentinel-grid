@@ -191,7 +191,8 @@ def test_daily_aggregate_empty():
 
 def test_code_sets_are_disjoint_and_numeric():
     assert not set(sw.RESPIRATORY_SNOMED) & set(sw.HEAT_SNOMED)
-    for code in [*sw.RESPIRATORY_SNOMED, *sw.HEAT_SNOMED]:
+    assert not set(sw.FEBRILE_SNOMED) & (set(sw.RESPIRATORY_SNOMED) | set(sw.HEAT_SNOMED))
+    for code in [*sw.RESPIRATORY_SNOMED, *sw.HEAT_SNOMED, *sw.FEBRILE_SNOMED]:
         assert code.isdigit()
 
 

@@ -14,6 +14,42 @@ export type DriverDetail = {
   score: number | null;
   suppressed: boolean;
   source: string;
+  label?: string | null;
+};
+
+export type ShapSignal = {
+  abs_shap: number;
+  shap: number;
+  pct_of_total: number;
+  direction: "raises_risk" | "lowers_risk";
+};
+
+export type ShapSummary = {
+  signals: Record<string, ShapSignal>;
+  base_value: number;
+  prediction: number;
+  model: { model_fitted_at?: string; n_train?: number; r2_holdout?: number; reused?: boolean } | null;
+  background_rows: number | null;
+};
+
+export type WaterfallStep = {
+  feature: string;
+  signal: string;
+  pillar: Pillar | null;
+  shap: number;
+  value: number | null;
+  baseline: number;
+  cumulative: number;
+};
+
+export type WaterfallResponse = {
+  alert_id: string;
+  task: "regression" | "classification";
+  level: "signal" | "feature";
+  output: string;
+  base_value: number;
+  prediction: number;
+  steps: WaterfallStep[];
 };
 
 export type AlertItem = {
@@ -29,8 +65,13 @@ export type AlertItem = {
   score: number;
   credible_interval: [number, number];
   coverage: number;
-  /** signal -> contribution %, sums to 100. Chunk 4 swaps in SHAP values; same shape. */
+  /** signal -> contribution %, sums to 100: SHAP shares (drivers_method "shap"), or the
+   *  fusion-weight shares when no surrogate could be fitted ("fusion_weights"). */
   drivers: Record<string, number>;
+  /** static fusion-weight shares (%), kept for comparison */
+  drivers_prior: Record<string, number>;
+  drivers_method: "shap" | "fusion_weights";
+  explanation_template: string | null;
   driver_details: Record<string, DriverDetail>;
   created_at: string;
   peak_at: string;
@@ -50,6 +91,9 @@ export type AlertDetail = AlertItem & {
   traces: { signals: Record<string, TracePoint[]>; fused: FusedPoint[] };
   acks: Ack[];
   expired: boolean;
+  shap: ShapSummary | null;
+  driver_onsets: Record<string, string | null>;
+  shap_disagreements: { signal: string; fusion_weight: number; shap: number; pct_of_total: number }[];
 };
 
 export type AlertsResponse = {
@@ -67,6 +111,10 @@ export function useAlerts() {
 
 export function useAlertDetail(id: string | null) {
   return useSWR<{ alert: AlertDetail }>(id ? `/api/alerts/${id}` : null, fetcher);
+}
+
+export function useShapWaterfall(id: string | null, enabled = true) {
+  return useSWR<WaterfallResponse>(id && enabled ? `/api/alerts/${id}/shap_waterfall` : null, fetcher);
 }
 
 export async function ackAlert(id: string, acknowledged_by: string, notes: string) {
@@ -100,12 +148,26 @@ export const SEVERITY: Record<Severity, { label: string; badge: string; rail: st
   },
 };
 
-/** Pillar hues match the pillar card icons (teal clinical, amber env, rose occupational). */
-export const PILLAR: Record<Pillar, { label: string; shades: string[] }> = {
-  env: { label: "Environmental", shades: ["#d97706", "#f59e0b", "#fbbf24"] },
-  occ: { label: "Occupational", shades: ["#e11d48", "#fb7185"] },
-  clin: { label: "Clinical", shades: ["#0d9488", "#2dd4bf"] },
+/**
+ * Pillar hues match the pillar card icons (amber env, teal clinical, rose occupational).
+ * One hue per pillar: validated with the dataviz palette checker in light AND dark mode
+ * (lightness band, chroma, CVD ΔE >= 9.3 all-pairs, normal ΔE >= 16.6, contrast >= 3:1).
+ * Lighter/darker shades of the same hue failed those checks, so a second signal from the
+ * same pillar is told apart by a diagonal hatch (see hatchFill) + its direct label.
+ */
+export const PILLAR: Record<Pillar, { label: string; hex: string }> = {
+  env: { label: "Environmental", hex: "#d97706" },
+  occ: { label: "Occupational", hex: "#e11d48" },
+  clin: { label: "Clinical", hex: "#0d9488" },
 };
+
+/** CSS background for a segment; nth >= 1 within a pillar gets the 45° hatch. */
+export function pillarFill(pillar: Pillar, nth: number): string {
+  const c = PILLAR[pillar].hex;
+  return nth === 0
+    ? c
+    : `repeating-linear-gradient(45deg, ${c} 0 3px, color-mix(in srgb, ${c} 45%, transparent) 3px 6px)`;
+}
 
 export const SIGNAL_LABEL: Record<string, string> = {
   apparent_temp: "Apparent temp",

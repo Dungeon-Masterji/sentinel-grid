@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DriverBar } from "@/components/alerts/driver-bar";
+import { ShapWhy } from "@/components/alerts/shap-why";
 import {
   PILLAR,
   SEVERITY,
@@ -154,9 +154,10 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
                 </div>
               </div>
 
+              <ShapWhy alert={alert} detail={d} />
+
               <section>
-                <h3 className="mb-2 text-xs uppercase tracking-wider text-slate-500">Drivers</h3>
-                <DriverBar drivers={alert.drivers} details={alert.driver_details} height="h-3" />
+                <h3 className="mb-2 text-xs uppercase tracking-wider text-slate-500">Signal readings</h3>
                 <table className="mt-3 w-full text-xs">
                   <thead className="text-slate-500">
                     <tr className="text-left">
@@ -217,7 +218,7 @@ export function AlertSheet({ alert, onOpenChange }: { alert: AlertItem | null; o
                 {d &&
                   Object.entries(d.traces.signals).map(([k, pts]) => {
                     const det = alert.driver_details[k];
-                    const color = PILLAR[det?.pillar ?? "env"].shades[0];
+                    const color = PILLAR[det?.pillar ?? "env"].hex;
                     return <SignalTrace key={k} name={k} points={pts} color={color} unit={det?.unit ?? null} />;
                   })}
               </section>

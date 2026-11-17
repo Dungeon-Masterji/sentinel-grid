@@ -5,3 +5,5 @@ scipy==1.17.1
 prophet==1.5.0
 pyod==3.6.7
 pymc==5.28.5        # mode: sampled only; map mode needs scipy alone
+lightgbm==4.7.0     # SHAP surrogate (packages/pipelines/explain); manylinux_2_28 wheels; macOS needs `brew install libomp`
+shap==0.51.0        # TreeExplainer, interventional

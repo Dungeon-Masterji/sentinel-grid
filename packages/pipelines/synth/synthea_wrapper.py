@@ -82,6 +82,14 @@ HEAT_SNOMED: dict[str, str] = {
     "43339004": "Hypokalemia",
 }
 
+#: Febrile presentations (emitted by the configs/synthea uae_febrile_illness module).
+#: Checked active on tx.fhir.org $lookup (2026-11-17).
+FEBRILE_SNOMED: dict[str, str] = {
+    "386661006": "Fever",
+    "95891005": "Influenza-like illness",
+    "34014006": "Viral disease",
+}
+
 #: LOINC codes for cardiometabolic thresholds.
 LOINC_HBA1C = "4548-4"                 # Hemoglobin A1c/Hemoglobin.total in Blood (%)
 LOINC_GLUCOSE = {"1558-6",             # Fasting glucose [Mass/volume] in Serum or Plasma

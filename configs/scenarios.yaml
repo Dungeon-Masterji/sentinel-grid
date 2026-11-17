@@ -39,6 +39,13 @@ detector:
   lof_neighbors: 50
   random_state: 42
 
+explain:                          # SHAP drivers (packages/pipelines/explain/shap_runner.py)
+  retrain_after_hours: 12         # refit the LightGBM surrogate once the window moves > 12 h
+  background_rows: 1000           # SHAP background sample (training rows)
+  background_fallback_rows: 500   # used if one alert takes > shap_budget_ms to explain
+  shap_budget_ms: 300
+  disagreement_min_pct: 5         # log SHAP-vs-weight sign disagreements above this share
+
 baseline:
   seasonality: [daily, weekly]
   min_history_days: 30
@@ -54,15 +61,15 @@ baseline:
 # All drivers are upper-tail: only above-baseline residuals score.
 # ---------------------------------------------------------------------------
 signals:
-  apparent_temp:        { pillar: env,  unit: "°C",    floor: 38 }
-  pm25:                 { pillar: env,  unit: "µg/m³", floor: 35 }
-  pm10:                 { pillar: env,  unit: "µg/m³", floor: 100 }
-  absence_rate:         { pillar: occ,  unit: "rate",  min_std: 0.005 }
-  respiratory_absence_rate: { pillar: occ, unit: "rate", min_std: 0.003 }
-  heat_related_encounter_count: { pillar: clin, unit: "encounters/24h", min_std: 1.0 }
-  respiratory_encounter_count:  { pillar: clin, unit: "encounters/24h", min_std: 1.0 }
-  any_encounter_count:          { pillar: clin, unit: "encounters/24h", min_std: 2.0 }
-  fever_encounter_count:        { pillar: clin, unit: "encounters/24h", min_std: 1.0 }
+  apparent_temp:        { label: "apparent temperature", pillar: env,  unit: "°C",    floor: 38 }
+  pm25:                 { label: "PM2.5", pillar: env,  unit: "µg/m³", floor: 35 }
+  pm10:                 { label: "PM10", pillar: env,  unit: "µg/m³", floor: 100 }
+  absence_rate:         { label: "absence rate", pillar: occ,  unit: "rate",  min_std: 0.005 }
+  respiratory_absence_rate: { label: "respiratory absence rate", pillar: occ, unit: "rate", min_std: 0.003 }
+  heat_related_encounter_count: { label: "heat-related encounters", pillar: clin, unit: "encounters/24h", min_std: 1.0 }
+  respiratory_encounter_count:  { label: "respiratory encounters", pillar: clin, unit: "encounters/24h", min_std: 1.0 }
+  any_encounter_count:          { label: "all-cause encounters", pillar: clin, unit: "encounters/24h", min_std: 2.0 }
+  fever_encounter_count:        { label: "febrile encounters", pillar: clin, unit: "encounters/24h", min_std: 1.0 }
 
 scenarios:
   - id: heat-stress-cluster

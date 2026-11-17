@@ -95,7 +95,8 @@ def world():
 def run(world, tmp_path_factory):
     out = tmp_path_factory.mktemp("alerts")
     cache = tmp_path_factory.mktemp("cache")
-    alerts = A.generate_alerts(AS_OF, CFG, out_dir=out, cache_dir=cache, panel_kwargs=world)
+    alerts = A.generate_alerts(AS_OF, CFG, out_dir=out, cache_dir=cache, explain_dir=cache / "explain",
+                               panel_kwargs=world)
     return alerts, out, cache
 
 
@@ -288,7 +289,7 @@ def test_injected_heat_event_raises_explainable_alert(run):
 def test_dedupe_ids_are_stable_and_replay_ignores_future(world, run, tmp_path):
     alerts, _, cache = run
     again = A.generate_alerts(AS_OF + pd.Timedelta(minutes=15), CFG, out_dir=None,
-                              cache_dir=cache, panel_kwargs=world)
+                              cache_dir=cache, explain_dir=cache / "explain", panel_kwargs=world)
     assert {a["id"] for a in alerts} & {a["id"] for a in again}               # same window -> same id
     keys = [(a["scenario_id"], a["h3_cell"]) for a in alerts]
     assert len(keys) == len(set(keys))                                         # one per scenario+hex
@@ -306,7 +307,8 @@ def test_dedupe_ids_are_stable_and_replay_ignores_future(world, run, tmp_path):
         [{"patient_id": "p1", "event_type": "encounter", "code": "x", "encounter_id": f"f{i}",
           "event_time": later[i % 12], "reason_code": "34095006"} for i in range(200)])],
         ignore_index=True)
-    replay = A.generate_alerts(AS_OF, CFG, out_dir=None, cache_dir=tmp_path, panel_kwargs=future)
+    replay = A.generate_alerts(AS_OF, CFG, out_dir=None, cache_dir=tmp_path,
+                                explain_dir=tmp_path / "explain", panel_kwargs=future)
     strip = lambda xs: sorted((a["id"], a["severity"], a["score"]) for a in xs)  # noqa: E731
     assert strip(replay) == strip(alerts)
 

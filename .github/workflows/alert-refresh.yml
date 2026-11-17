@@ -3,7 +3,8 @@
 # 1. Pull the latest clinical parquets (data/processed/clinical branch, nightly Synthea).
 # 2. Refresh environmental + synthetic occupational data (Open-Meteo / CAMS, seeded).
 # 3. Run packages.pipelines.fusion.alerts as of now: Prophet baselines + PyOD detectors
-#    (cached across runs; refit when older than 24 h) + Bayesian fusion (MAP).
+#    (cached across runs; refit when older than 24 h) + Bayesian fusion (MAP) + SHAP
+#    drivers from LightGBM surrogates (cached; refit when the window moves > 12 h).
 # 4. Force-push the outputs as a single orphan commit to branch `data/processed/alerts`.
 # 5. Ping POST /api/alerts/refresh (X-Refresh-Secret) so Azure re-pulls immediately;
 #    otherwise the API re-pulls on its own every 10 minutes.
@@ -70,10 +71,12 @@ jobs:
       - name: Restore model cache
         uses: actions/cache@v4
         with:
-          path: data/processed/baselines
-          key: baselines-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**') }}-${{ steps.day.outputs.day }}
+          path: |
+            data/processed/baselines
+            data/processed/explain
+          key: models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-${{ steps.day.outputs.day }}
           restore-keys: |
-            baselines-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**') }}-
+            models-${{ hashFiles('configs/scenarios.yaml', 'packages/pipelines/fusion/**', 'packages/pipelines/explain/**') }}-
 
       - name: Refresh environmental + occupational signals
         env:
