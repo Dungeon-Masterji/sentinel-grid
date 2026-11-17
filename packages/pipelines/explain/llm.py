@@ -349,6 +349,48 @@ def reconcile_action(alert: dict, scenario: dict, action: dict, *, budget: Alert
     return out, status
 
 
+#: Trigger words in the action sentence itself (narration scan above stays as it is).
+_URGENT_ACTION = re.compile(r"\b(immediate|immediately|now|right away|promptly)\b", re.I)
+
+
+def action_urgency_phrase(text: str | None) -> str | None:
+    m = _URGENT_ACTION.search(text or "")
+    return m.group(0) if m else None
+
+
+def reconcile_action_text(alert: dict, scenario: dict, action: dict, *, budget: AlertBudget,
+                          state: RunState) -> tuple[dict, str]:
+    """Runs after reconcile_action. If action.specific_action itself sounds urgent
+    ("immediate", "immediately", "now", "right away", "promptly") but time_window is not
+    "immediate", regenerate the action ONE more time, telling the model to keep urgency
+    words out of the sentence. Returns (action, status): ok | regenerated | mismatch |
+    skipped. The retry is kept only if it is an LLM action whose sentence is free of
+    trigger words; otherwise the previous action stays. Outcome cached as text_consistency."""
+    if action.get("text_consistency"):
+        return action, action["text_consistency"]
+    phrase = action_urgency_phrase(action.get("specific_action"))
+    if not phrase or action["time_window"] == "immediate":
+        return action, "ok"
+    if state.offline or action.get("source") != "llm":
+        return action, "skipped"
+    note = (f"your specific_action says '{phrase}', but time_window is {action['time_window']}. "
+            "Return the action again with a specific_action sentence that contains NO urgency "
+            "words (no 'immediate', 'immediately', 'now', 'right away', 'promptly'); the "
+            "time_window field alone carries the timing.")
+    retry = recommend_action(alert, scenario, narrative=alert.get("explanation_en"), budget=budget,
+                             state=state, ncfg=state.ncfg, force=True, consistency_note=note)
+    key = f"{PROMPT_VERSION}|{alert['scenario_id']}|{alert['h3_cell']}|{alert.get('severity')}"
+    if retry.get("source") == "llm" and (retry["time_window"] == "immediate"
+                                         or not action_urgency_phrase(retry["specific_action"])):
+        out, status = {**retry, "text_consistency": "regenerated"}, "regenerated"
+        if action.get("consistency"):
+            out["consistency"] = action["consistency"]
+    else:
+        out, status = {**action, "text_consistency": "mismatch"}, "mismatch"
+    state.cache.put_action(key, out)
+    return out, status
+
+
 # ---------------------------------------------------------------------------------------
 # per alert / per run
 # ---------------------------------------------------------------------------------------
@@ -381,8 +423,10 @@ def enrich_alert(alert: dict, scenario: dict, *, state: RunState, force: bool = 
 
     action = recommend_action(alert, scenario, narrative=alert["explanation_en"],
                               budget=budget, state=state, ncfg=ncfg, force=force)
-    alert["action"], meta["action_consistency"] = reconcile_action(alert, scenario, action,
-                                                                   budget=budget, state=state)
+    action, meta["action_consistency"] = reconcile_action(alert, scenario, action,
+                                                         budget=budget, state=state)
+    alert["action"], meta["action_text_consistency"] = reconcile_action_text(
+        alert, scenario, action, budget=budget, state=state)
     meta["completion_budget_left"] = budget.left
     meta["tokens"] = budget.used
     meta["generated_at"] = state.cache.now().astimezone(timezone.utc).isoformat(timespec="seconds")

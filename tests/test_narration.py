@@ -368,3 +368,77 @@ def test_urgency_words():
     assert L.urgency_phrase("Do it right away") == "right away"
     assert L.urgency_phrase("Issue masks now.") == "now"
     assert L.urgency_phrase("A known issue, nowhere near.") is None
+
+
+# ---------------------------------------------------------------------------------------
+# action-text urgency
+# ---------------------------------------------------------------------------------------
+def _act(text, tw="within_1h"):
+    return json.dumps({"owner_role": "safety_officer", "time_window": tw,
+                       "specific_action": text, "escalation_if_no_ack_in_minutes": 60})
+
+
+@pytest.mark.parametrize("text, hit", [
+    ("Issue FFP2 masks to all outdoor crews now.", "now"),
+    ("Move heavy tasks indoors immediately.", "immediately"),
+    ("Arrange immediate shade breaks.", "immediate"),
+    ("Brief crews right away on symptoms.", "right away"),
+    ("Promptly move heavy tasks before 10:00.", "Promptly"),
+    ("Move heavy outdoor tasks to before 10:00.", None),
+    ("Review known exposure sites nowhere near the yard.", None),
+])
+def test_action_text_trigger_words(text, hit):
+    assert L.action_urgency_phrase(text) == hit
+
+
+def test_urgent_action_text_regenerated_without_urgency(cache, monkeypatch):
+    fake = FakeLLM(narration=[GOOD_EN], arabic=[GOOD_AR],
+                   action=[_act("Issue FFP2 masks to outdoor crews now."),
+                           _act("Issue FFP2 masks to all outdoor crews.")])
+    a, _ = run(heat_alert(), fake, cache, monkeypatch,
+               cfg={**CFG, "narration": {"per_alert_token_budget": 2000}})
+    assert fake.kinds() == ["narration", "arabic", "action", "action"]
+    retry_prompt = fake.calls[-1]["messages"][-1]["content"]
+    assert "your specific_action says 'now'" in retry_prompt and "NO urgency words" in retry_prompt
+    assert a["action"]["specific_action"] == "Issue FFP2 masks to all outdoor crews."
+    assert a["narration"]["action_consistency"] == "ok"           # narration scan unchanged
+    assert a["narration"]["action_text_consistency"] == "regenerated"
+    again = FakeLLM()                                              # cached with its outcome
+    b, _ = run(heat_alert(), again, cache, monkeypatch)
+    assert again.calls == [] and b["action"]["specific_action"].endswith("crews.")
+
+
+def test_urgent_action_text_retry_still_urgent_keeps_original(cache, monkeypatch):
+    first = _act("Promptly move heavy outdoor tasks before 10:00.")
+    fake = FakeLLM(narration=[GOOD_EN], arabic=[GOOD_AR],
+                   action=[first, _act("Move heavy outdoor tasks right away.")])
+    a, _ = run(heat_alert(), fake, cache, monkeypatch,
+               cfg={**CFG, "narration": {"per_alert_token_budget": 2000}})
+    assert fake.kinds().count("action") == 2                       # one regeneration only
+    assert a["action"]["specific_action"] == json.loads(first)["specific_action"]
+    assert a["narration"]["action_text_consistency"] == "mismatch"
+
+
+def test_urgent_action_text_ok_when_window_is_immediate(cache, monkeypatch):
+    fake = FakeLLM(narration=[GOOD_EN], arabic=[GOOD_AR],
+                   action=[WARN_ACTION("immediate").replace("Stop", "Stop now")])
+    a, _ = run(heat_alert(severity="warning"), fake, cache, monkeypatch)
+    assert fake.kinds().count("action") == 1
+    assert a["narration"]["action_text_consistency"] == "ok"
+
+
+def test_both_checks_run_in_sequence(cache, monkeypatch):
+    # narration urgent -> regen 1 (advisory can't be immediate: still within_1h, text "now")
+    # -> action-text scan -> regen 2 with no urgency words
+    fake = FakeLLM(narration=[URGENT_EN], arabic=[GOOD_AR],
+                   action=[GOOD_ACTION, _act("Move heavy outdoor tasks before 10:00 now."),
+                           _act("Move heavy outdoor tasks to before 10:00.")])
+    a, _ = run(heat_alert(), fake, cache, monkeypatch,
+               cfg={**CFG, "narration": {"per_alert_token_budget": 2000}})
+    assert fake.kinds().count("action") == 3
+    assert "Consistency check: the narrative" in fake.calls[3]["messages"][-1]["content"]
+    assert "your specific_action says 'now'" in fake.calls[4]["messages"][-1]["content"]
+    assert a["narration"]["action_consistency"] == "mismatch"
+    assert a["narration"]["action_text_consistency"] == "regenerated"
+    assert a["action"]["consistency"] == "mismatch"
+    assert a["action"]["specific_action"] == "Move heavy outdoor tasks to before 10:00."
