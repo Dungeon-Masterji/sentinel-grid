@@ -7,3 +7,8 @@ import pytest
 def _no_groq(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.setenv("NARRATION_CACHE_PATH", ":memory:")
+
+
+@pytest.fixture(autouse=True)
+def _no_n8n(monkeypatch):
+    monkeypatch.delenv("N8N_WEBHOOK_URL", raising=False)

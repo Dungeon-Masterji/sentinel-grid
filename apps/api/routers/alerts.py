@@ -74,6 +74,7 @@ DEFAULT_SOURCE = ("https://raw.githubusercontent.com/Dungeon-Masterji/sentinel-g
                   "refs/heads/data/processed/alerts/data/processed/alerts")
 NOTICE = ("Fused from synthetic clinical (Synthea) and synthetic workforce data plus real "
           "environmental observations. Decision support only.")
+OPTIONAL_FILES = ("sends.jsonl",)     # n8n routing ledger; absent until routing is enabled
 SEVERITY_RANK = {"watch": 0, "advisory": 1, "warning": 2}
 JSON_FIELDS = ("drivers", "drivers_prior", "drivers_severity", "driver_details",
                "driver_onsets", "shap", "shap_severity", "shap_disagreements", "hex_boundary")
@@ -144,6 +145,10 @@ class _Store:
                 r = requests.get(f"{url}/{name}", timeout=10)
                 r.raise_for_status()
                 fetched[name] = r.content
+            for name in OPTIONAL_FILES:
+                r = requests.get(f"{url}/{name}", timeout=10)
+                if r.status_code == 200:
+                    fetched[name] = r.content
             for name, body in fetched.items():   # write all-or-nothing
                 tmp = dest / f".{name}.tmp"
                 tmp.write_bytes(body)

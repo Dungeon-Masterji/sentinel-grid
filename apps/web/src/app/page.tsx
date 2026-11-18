@@ -99,6 +99,9 @@ export default function Home() {
             <p className="text-sm text-slate-500">Tri-signal early warning · UAE</p>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/ops" className="text-sm font-medium text-slate-700 hover:underline dark:text-slate-200">
+              Operations
+            </Link>
             <Link href="/backtest" className="text-sm font-medium text-slate-700 hover:underline dark:text-slate-200">
               Backtest
             </Link>

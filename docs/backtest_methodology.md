@@ -152,16 +152,18 @@ See the scorecard at the top of `README.md` and `/backtest` on the dashboard. Th
 writes the numbers to `data/processed/backtest/results/scorecard.json`.
 
 Run: 2023-01-01 → 2024-12-31 (104.4 weeks, 731 daily model refits, 70,176 fifteen-minute
-ticks), 11 events in window. Chance = the same alerts re-timed at random, 200 shuffles
+ticks), 11 events in window. These are the numbers of the weekly CI run of 2026-11-17 that
+the live API serves. Every run regenerates the synthetic pillars, so they move slightly;
+a local run the same day gave PPV lifts of 2.2× / 3.3× / 4.5×. Chance = the same alerts re-timed at random, 200 shuffles
 ("seasonal": ±7–45 days, so the season is kept; "uniform" in scorecard.json).
 
 | Alerts counted | Alerts | False alarms/wk | Sensitivity | …chance | PPV | …chance (p95) | PPV lift | Median lead |
 |---|---|---|---|---|---|---|---|---|
-| watch or higher | 13,505 | 123.4 | 100 % (11/11) | 99.7 % | 4.6 % | 2.1 % (2.5 %) | 2.2× | 66 h* |
-| advisory or higher | 6,154 | 55.9 | 73 % (8/11) | 95.1 % | 5.2 % | 1.6 % (2.0 %) | 3.3× | 20 h |
-| warning | 3,718 | 34.0 | 55 % (6/11) | 74.5 % | 4.5 % | 1.0 % (1.4 %) | 4.5× | 34 h |
+| watch or higher | 13,484 | 123.2 | 100 % (11/11) | 99.7 % | 4.6 % | 2.1 % (2.5 %) | 2.2× | 66 h* |
+| advisory or higher | 6,155 | 55.9 | 73 % (8/11) | 95.3 % | 5.1 % | 1.6 % (2.0 %) | 3.2× | 27 h |
+| warning | 3,734 | 34.1 | 55 % (6/11) | 76.0 % | 4.7 % | 1.0 % (1.3 %) | 4.7× | 34 h |
 
-Brier 0.105 vs 0.020 for always predicting the base rate (skill −4.2).
+Brier 0.104 vs 0.020 for always predicting the base rate (skill −4.2).
 
 **What this says, plainly:**
 
@@ -171,12 +173,12 @@ Brier 0.105 vs 0.020 for always predicting the base rate (skill −4.2).
    chance on sensitivity, because real alerts come in bursts that cover fewer distinct
    events than scattered random ones.
 2. **There is a real signal, and it is in precision.** Alerts land inside real event
-   windows 2.2× (watch), 3.3× (advisory) and 4.5× (warning) more often than randomly
+   windows 2.2× (watch), 3.2× (advisory) and 4.7× (warning) more often than randomly
    re-timed copies, above the 95th percentile of 200 shuffles at every tier. Higher tiers
    are more event-specific. That is the one claim this backtest supports.
 3. **Lead time is not meaningful at watch tier.** \*With near-continuous alerting, the "first
    matching alert" is simply the first one inside the 72 h lead window, which is why
-   watch-tier leads cluster at 63–71 h. Advisory/warning leads (20–34 h median) are less
+   watch-tier leads cluster at 63–71 h. Advisory/warning leads (27–34 h median) are less
    contaminated but still inflated by volume.
 4. **The thresholds are mis-set for the full year.** They were calibrated on autumn 2026 to an
    alert budget of ~3 % / 0.7 % / 0.15 % of hex-hours; summer heat and spring dust blow
@@ -185,11 +187,11 @@ Brier 0.105 vs 0.020 for always predicting the base rate (skill −4.2).
    to ~3.4 % at fused ≈ 0.34 and then *falls* to 0 above 0.7: the highest scores occur
    outside listed events (unlisted hot/dusty days, and infectious-scenario noise from
    the synthetic clinical pillar).
-6. **Infectious scenario:** 7,185 alerts (53 % of all) against zero real infectious events, which is
+6. **Infectious scenario:** 7,174 alerts (53 % of all) against zero real infectious events, which is
    pure false-alarm load from the synthetic pillar. Its "detections" of heatwaves (75 %)
    and dust (80 %) in the coverage matrix are chance, as the shuffles show.
 7. **Ramadan** counts as "detected" only because a month-long window guarantees an overlap;
-   its first alert came 167 h *after* the start. **The flood** was "detected" by 313 alerts
+   its first alert came 167 h *after* the start. **The flood** was "detected" by 314 alerts
    in its window, which is chance as well. No scenario models floods.
 
 **What would fix it (Chunk 7+):** re-calibrate thresholds on a full year with a

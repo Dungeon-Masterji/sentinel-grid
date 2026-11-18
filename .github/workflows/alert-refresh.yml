@@ -93,6 +93,11 @@ jobs:
           else
             echo "::notice::no narration cache on $DATA_BRANCH yet; starting fresh"
           fi
+          # n8n routing ledger: alerts already routed at their severity are not re-sent
+          mkdir -p data/processed/alerts
+          if git cat-file -e FETCH_HEAD:data/processed/alerts/sends.jsonl 2>/dev/null; then
+            git show FETCH_HEAD:data/processed/alerts/sends.jsonl > data/processed/alerts/sends.jsonl
+          fi
 
       - name: Refresh environmental + occupational signals
         env:
@@ -104,6 +109,9 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}     # unset => template narration
           GROQ_MODEL: openai/gpt-oss-120b
           GROQ_MODEL_AR: allam-2-7b
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}         # unset => routing skipped (logged)
+          OPS_CALLBACK_BASE: ${{ env.API_BASE }}                  # where n8n reports routing steps
+          OPS_CALLBACK_TOKEN: ${{ secrets.OPS_CALLBACK_TOKEN }}
         run: |
           set -euo pipefail
           args=()
@@ -129,6 +137,7 @@ jobs:
                      data/processed/alerts/units.parquet \
                      data/processed/alerts/meta.json
           [ -f data/processed/alerts/narration_cache.sqlite ] && git add -f data/processed/alerts/narration_cache.sqlite
+          [ -f data/processed/alerts/sends.jsonl ] && git add -f data/processed/alerts/sends.jsonl
           git commit -qm "data: alerts ${stamp}"
           git push --force origin "HEAD:refs/heads/${DATA_BRANCH}"
 

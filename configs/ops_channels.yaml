@@ -1,0 +1,43 @@
+# Owner role -> notification channel, for alert routing through n8n
+# (ops/n8n/workflows/alert_routing.json, packages/pipelines/ops/notify.py).
+#
+# NO real phone numbers, chat ids or inboxes live here. Every channel is a webhook URL:
+#   1. $<url_env> if set (Slack incoming webhook, Telegram bot URL, Teams, an SMS gateway...)
+#   2. otherwise demo_url: a public webhook.site inbox, so judges can watch hits land at
+#      https://webhook.site/#!/view/83dbf5dd-7ef6-4a16-bcad-2b0c18b09845
+#      (free webhook.site URLs expire after 7 days: this one on 2026-11-25. Create a new
+#      one with `curl -X POST https://webhook.site/token` and replace the token below.)
+#
+# group drives the colour of the role everywhere (n8n sticky notes, the /ops diagram):
+# site = blue, safety = orange, health = aqua, regulator = violet, emirate = magenta
+# (dataviz categorical slots 1, 2, 3, 7, 5).
+#
+# escalates_to: who is notified alongside the owner on a warning, and instead of the
+# owner when an advisory is not acknowledged. Everything ends at emirate_ops_lead.
+version: 1
+
+demo_base: https://webhook.site/83dbf5dd-7ef6-4a16-bcad-2b0c18b09845
+
+groups:
+  site:      { label: Site operations, color: "#2a78d6", n8n_sticky: 5 }
+  safety:    { label: Safety & HR,     color: "#eb6834", n8n_sticky: 2 }
+  health:    { label: Health,          color: "#1baf7a", n8n_sticky: 4 }
+  regulator: { label: Regulators,      color: "#6250d6", n8n_sticky: 6 }
+  emirate:   { label: Emirate operations, color: "#e87ba4", n8n_sticky: 3 }
+
+roles:
+  # owners produced by the structured action (packages/pipelines/explain/llm.py)
+  site_supervisor:    { label: Site supervisor,      group: site,      url_env: OPS_CH_SITE_SUPERVISOR,    escalates_to: mohre_inspector }
+  operations_manager: { label: Operations manager,   group: site,      url_env: OPS_CH_OPERATIONS_MANAGER, escalates_to: emirate_ops_lead }
+  safety_officer:     { label: Safety officer,       group: safety,    url_env: OPS_CH_SAFETY_OFFICER,     escalates_to: site_supervisor }
+  hr_lead:            { label: HR lead,              group: safety,    url_env: OPS_CH_HR_LEAD,            escalates_to: operations_manager }
+  medical_lead:       { label: Medical lead,         group: health,    url_env: OPS_CH_MEDICAL_LEAD,       escalates_to: doh_surveillance }
+  # authorities (escalation targets; also usable as owners)
+  doh_surveillance:   { label: DoH surveillance,     group: health,    url_env: OPS_CH_DOH_SURVEILLANCE,   escalates_to: emirate_ops_lead }
+  mohre_inspector:    { label: MoHRE inspector,      group: regulator, url_env: OPS_CH_MOHRE_INSPECTOR,    escalates_to: emirate_ops_lead }
+  school_authority:   { label: School authority,     group: regulator, url_env: OPS_CH_SCHOOL_AUTHORITY,   escalates_to: emirate_ops_lead }
+  emirate_ops_lead:   { label: Emirate operations lead, group: emirate, url_env: OPS_CH_EMIRATE_OPS_LEAD, escalates_to: null }
+
+routing:
+  advisory_ack_wait_minutes: 15     # advisory: notify owner, escalate if no ack after this
+  demo_wait_seconds: 10             # every wait when the payload says demo: true

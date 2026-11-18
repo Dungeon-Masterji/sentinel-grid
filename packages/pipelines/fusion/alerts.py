@@ -24,6 +24,9 @@ generate_alerts(as_of_time, scenarios_yaml):
      explanation_source = "template_fallback") when the LLM is off, rate-limited,
      over budget, or returns something that fails validation.
   8. write data/processed/alerts/{active,signal_traces,fused_traces}.parquet + meta.json
+  9. route: POST every alert not yet routed at its current severity to the n8n webhook
+     ($N8N_WEBHOOK_URL; packages/pipelines/ops/notify.py), logged in alerts/sends.jsonl.
+     Unset -> skipped and logged.
 
 Only the CLI entry point reads the clock; every function takes time from its caller.
 """
@@ -483,6 +486,16 @@ def generate_alerts(as_of_time, scenarios_yaml=SCENARIOS_YAML, *, mode: str | No
             {"as_of": _iso(as_of), "mode": mode, "n_alerts": len(alerts), "timings": timings,
              "surrogates": explain_meta, "narration": narration_stats, "notice": NOTICE},
             indent=2, default=str))
+        try:
+            from packages.pipelines.ops.notify import send_new_alerts
+            routing = send_new_alerts(alerts, out_dir / "sends.jsonl")
+        except Exception as e:  # noqa: BLE001 - routing must never fail an alert run
+            log.warning("n8n routing failed: %s", e)
+            routing = {"enabled": True, "error": str(e)[:200]}
+        meta_p = out_dir / "meta.json"
+        m = json.loads(meta_p.read_text())
+        m["routing"] = routing
+        meta_p.write_text(json.dumps(m, indent=2, default=str))
     log.info("as_of=%s alerts=%d timings=%s", _iso(as_of), len(alerts), timings)
     return alerts
 

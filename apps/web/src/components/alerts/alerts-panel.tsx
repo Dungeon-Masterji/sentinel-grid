@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { MapPin, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +54,17 @@ function AlertCard({ a, onOpen }: { a: AlertItem; onOpen: () => void }) {
 }
 
 export function AlertsPanel() {
-  const { data, error, isLoading } = useAlerts();
+  const [includeExpired, setIncludeExpired] = useState(false);
+  const { data, error, isLoading } = useAlerts(includeExpired);
+  const [now, setNow] = useState(0);               // clock via effect: no impure reads in render
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0);
+    const t = setInterval(tick, 60_000);
+    return () => { clearTimeout(first); clearInterval(t); };
+  }, []);
+  // a detector run older than 6 h is a snapshot (e.g. `make demo-snapshot`), never "live"
+  const stale = !!data?.as_of && now > 0 && now - Date.parse(data.as_of) > 6 * 3_600_000;
   const [severity, setSeverity] = useState<"" | Severity>("");
   const [scenario, setScenario] = useState("");
   const [mySites, setMySites] = useState(false);
@@ -90,6 +100,10 @@ export function AlertsPanel() {
             </option>
           ))}
         </select>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <input type="checkbox" checked={includeExpired} onChange={(e) => setIncludeExpired(e.target.checked)} className="accent-slate-900" />
+          Include expired
+        </label>
         <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-slate-400" title="Needs sign-in: site assignments are not wired yet">
           <button
             type="button"
@@ -110,6 +124,12 @@ export function AlertsPanel() {
         )}
       </div>
 
+      {stale && data?.as_of && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          Snapshot, not live: these alerts come from a detector run on {new Date(data.as_of).toLocaleString()} (a replay of
+          real data at that time). Live alerts appear here as soon as the 15-minute pipeline raises one.
+        </div>
+      )}
       {isLoading && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Skeleton className="h-40 rounded-xl" />
@@ -125,7 +145,12 @@ export function AlertsPanel() {
       {shown.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {shown.map((a) => (
-            <AlertCard key={a.id} a={a} onOpen={() => setOpen(a)} />
+            <div key={a.id} className="relative">
+              <AlertCard a={a} onOpen={() => setOpen(a)} />
+              {now > 0 && Date.parse(a.expires_at) < now && (
+                <span className="pointer-events-none absolute bottom-3 right-3 rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] text-white">expired</span>
+              )}
+            </div>
           ))}
         </div>
       )}

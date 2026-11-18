@@ -1,0 +1,969 @@
+{
+  "name": "Sentinel Grid \u00b7 alert routing",
+  "nodes": [
+    {
+      "id": "7092a6de-158c-52a9-810a-b684b144890d",
+      "name": "Sentinel Grid \u00b7 alert routing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        -420
+      ],
+      "parameters": {
+        "content": "## Sentinel Grid \u00b7 alert routing\nPOST /webhook/sentinel-grid/alert from the alert pipeline or `POST /api/ops/replay_alert/{id}`.\nChannels, waits and plan arrive **resolved** in the body (configs/ops_channels.yaml). Each step reports to `/api/ops/events` \u2192 live /ops diagram.",
+        "width": 560,
+        "height": 220,
+        "color": 7
+      }
+    },
+    {
+      "id": "74ae47dc-c43d-5bb9-993c-5c6034543885",
+      "name": "Watch \u00b7 log only",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        -260
+      ],
+      "parameters": {
+        "content": "### WATCH \u00b7 log only\nAuto-acknowledged as `n8n-auto-log`.",
+        "width": 480,
+        "height": 220,
+        "color": 7
+      }
+    },
+    {
+      "id": "93db2e52-d88d-509d-b09c-8bef3ba4136a",
+      "name": "Owner channels",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        0
+      ],
+      "parameters": {
+        "content": "### Owner (advisory)\nColour per role group:\n- **Site operations**: Site supervisor, Operations manager\n- **Safety & HR**: Safety officer, HR lead\n- **Health**: Medical lead, DoH surveillance\n- **Regulators**: MoHRE inspector, School authority\n- **Emirate operations**: Emirate operations lead",
+        "width": 1460,
+        "height": 260,
+        "color": 5
+      }
+    },
+    {
+      "id": "7e1cb750-67d1-592f-a751-c2a044e0c8f3",
+      "name": "Escalation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        320
+      ],
+      "parameters": {
+        "content": "### WARNING \u00b7 owner + escalation contact\n(MoHRE inspector, DoH surveillance, site supervisor... per `escalates_to`)",
+        "width": 1460,
+        "height": 260,
+        "color": 6
+      }
+    },
+    {
+      "id": "57719d98-cb13-50f3-89d3-d4c61393d2d7",
+      "name": "Emirate operations lead",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        320
+      ],
+      "parameters": {
+        "content": "### Final escalation\nEmirate operations lead",
+        "width": 520,
+        "height": 260,
+        "color": 3
+      }
+    },
+    {
+      "id": "99cdc9f3-be51-5fff-9746-70106b9f82be",
+      "name": "Alert in (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        100
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sentinel-grid/alert",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "0f785d92-a137-52f5-b899-c81ad49d9ad4"
+    },
+    {
+      "id": "6b5ab13d-3510-5d8a-845b-1695f3af8351",
+      "name": "Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        120,
+        100
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $json.body }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "9a5d0d25-81c6-5a5f-9e61-e2038420ba70",
+      "name": "Report: received",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'received', status: 'done', role: null, channel: null, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'received' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "2ff9cb81-2ff4-5803-988b-83d34dbb5f08",
+      "name": "Report: routed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'routed', status: 'done', role: null, channel: null, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'routed' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "3e6a405a-8ed6-565c-a56c-3fd504b96c0a",
+      "name": "Severity router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        680,
+        100
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 3,
+        "output": "={{ ({watch: 0, advisory: 1, warning: 2})[$('Alert').item.json.severity] ?? 0 }}",
+        "options": {}
+      },
+      "notes": "0 watch \u00b7 1 advisory \u00b7 2 warning",
+      "notesInFlow": true
+    },
+    {
+      "id": "add4da69-698e-5b94-ae68-ede9028ebdbf",
+      "name": "Watch: auto-log ack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        -160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/alerts/{{ $('Alert').item.json.alert_id }}/ack",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ acknowledged_by: 'n8n-auto-log', notes: 'severity=watch, recorded only' }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a59b7d03-230b-5e1b-b979-68bc54c43416",
+      "name": "Report: logged",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        -160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'logged', status: 'done', role: null, channel: null, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'logged' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "6bb43c5a-4377-52e1-b932-af47b11e4a10",
+      "name": "Advisory message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        760,
+        100
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e513bf4-bc52-5880-846b-58fd2793c8f6",
+              "name": "message",
+              "type": "string",
+              "value": "={{ '[ADVISORY] ' + $('Alert').item.json.scenario_label + ' at ' + $('Alert').item.json.location_name + '. ' + ($('Alert').item.json.explanation_en || '') + ' ACTION for ' + $('Alert').item.json.channels.owner.label + ': ' + $('Alert').item.json.action.specific_action + ' (' + $('Alert').item.json.action.time_window + '). Alert ' + $('Alert').item.json.alert_id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7b1540c2-4d45-5546-865d-6e6a7aa5e06b",
+      "name": "Notify owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.channels.owner.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('Advisory message').item.json.message, alert_id: $('Alert').item.json.alert_id, severity: $('Alert').item.json.severity, role: $('Alert').item.json.channels.owner.role, role_label: $('Alert').item.json.channels.owner.label, action: $('Alert').item.json.action, location: $('Alert').item.json.location_name, explanation: $('Alert').item.json.explanation_en }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "00151687-3601-536a-8915-4780569f6a58",
+      "name": "Report: owner notified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'notified_owner', status: 'done', role: $('Alert').item.json.channels.owner.role, channel: $('Alert').item.json.channels.owner.url, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'notified_owner' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "dc618a18-289e-5cec-bead-d437ef29d309",
+      "name": "Wait for ack (15 min)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        100
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Alert').item.json.waits.ack_wait_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "b8db3b3f-25b0-535a-8586-7ee7bbf2a0e1",
+      "name": "Check ack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        100
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/alerts/{{ $('Alert').item.json.alert_id }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "f8a51d2c-47d0-5f77-b7cf-43fd42dfb62f",
+      "name": "Acknowledged?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1760,
+        100
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ (($('Check ack').item.json.alert || {}).acks || []).some(a => !String(a.acknowledged_by || '').startsWith('n8n') && new Date(a.acknowledged_at) >= new Date($('Alert').item.json.sent_at)) ? 0 : 1 }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "c97ba7fe-16ad-5983-985c-e0ec54b1e7ea",
+      "name": "Report: acked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'acked', status: 'done', role: null, channel: null, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'acked' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "59ab9b95-8637-5e73-b1f3-6328a6d05e8b",
+      "name": "Escalation message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        760,
+        420
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "84ef144a-f4cb-52d7-be20-d4656b13ca83",
+              "name": "message",
+              "type": "string",
+              "value": "={{ '[ESCALATION] ' + $('Alert').item.json.scenario_label + ' at ' + $('Alert').item.json.location_name + '. ' + ($('Alert').item.json.explanation_en || '') + ' ACTION for ' + $('Alert').item.json.channels.owner.label + ': ' + $('Alert').item.json.action.specific_action + ' (' + $('Alert').item.json.action.time_window + '). Alert ' + $('Alert').item.json.alert_id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a54b672d-af1a-51c8-b327-f51ee1f8fc51",
+      "name": "Notify owner (escalation)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.channels.owner.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('Escalation message').item.json.message, alert_id: $('Alert').item.json.alert_id, severity: $('Alert').item.json.severity, role: $('Alert').item.json.channels.owner.role, role_label: $('Alert').item.json.channels.owner.label, action: $('Alert').item.json.action, location: $('Alert').item.json.location_name, explanation: $('Alert').item.json.explanation_en }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b57ff2b2-3d1b-5d58-8e32-d98b8474cc98",
+      "name": "Notify escalation contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.channels.supervisor.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('Escalation message').item.json.message, alert_id: $('Alert').item.json.alert_id, severity: $('Alert').item.json.severity, role: $('Alert').item.json.channels.supervisor.role, role_label: $('Alert').item.json.channels.supervisor.label, action: $('Alert').item.json.action, location: $('Alert').item.json.location_name, explanation: $('Alert').item.json.explanation_en }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7ef28348-c649-54df-a629-6998d14d1b4a",
+      "name": "Both notified",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1160,
+        420
+      ],
+      "parameters": {
+        "mode": "chooseBranch",
+        "useDataOfInput": 2
+      }
+    },
+    {
+      "id": "8bfd191d-4cde-5c36-bd2f-dd0ceed190e2",
+      "name": "Report: escalated",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'escalated', status: 'done', role: $('Alert').item.json.channels.supervisor.role, channel: $('Alert').item.json.channels.supervisor.url, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'escalated' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "4e1f5172-ee96-52bf-88ab-4b8eb6c74bf3",
+      "name": "Wait for ack (escalation)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        420
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $('Alert').item.json.waits.escalation_wait_s }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "744e986e-53c1-5a21-a5e0-1bc47ea55f0c",
+      "name": "Check ack (escalation)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        420
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/alerts/{{ $('Alert').item.json.alert_id }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "6185ae96-ecf7-50fd-8bca-df22939672ac",
+      "name": "Acknowledged after escalation?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1960,
+        420
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ (($('Check ack (escalation)').item.json.alert || {}).acks || []).some(a => !String(a.acknowledged_by || '').startsWith('n8n') && new Date(a.acknowledged_at) >= new Date($('Alert').item.json.sent_at)) ? 0 : 1 }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "8565919b-7f72-5c5c-bfc3-e3feaf4ca988",
+      "name": "Report: acked after escalation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'acked_after_escalation', status: 'done', role: null, channel: null, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'acked_after_escalation' to /api/ops/events",
+      "notesInFlow": false
+    },
+    {
+      "id": "2f9942e8-424a-5519-bb77-68f3cb64f916",
+      "name": "Final escalation message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        480
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3db94526-f493-52d7-958d-099f2647fc51",
+              "name": "message",
+              "type": "string",
+              "value": "={{ '[FINAL ESCALATION] ' + $('Alert').item.json.scenario_label + ' at ' + $('Alert').item.json.location_name + '. ' + ($('Alert').item.json.explanation_en || '') + ' ACTION for ' + $('Alert').item.json.channels.owner.label + ': ' + $('Alert').item.json.action.specific_action + ' (' + $('Alert').item.json.action.time_window + '). Alert ' + $('Alert').item.json.alert_id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3f8ca034-4c2c-5145-bc2b-448af42026fc",
+      "name": "Notify emirate operations lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2440,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.channels.emirate_ops_lead.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $('Final escalation message').item.json.message, alert_id: $('Alert').item.json.alert_id, severity: $('Alert').item.json.severity, role: $('Alert').item.json.channels.emirate_ops_lead.role, role_label: $('Alert').item.json.channels.emirate_ops_lead.label, action: $('Alert').item.json.action, location: $('Alert').item.json.location_name, explanation: $('Alert').item.json.explanation_en }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7ea7319c-4475-5aa3-b758-4e2c2c0af3c5",
+      "name": "Report: emirate ops lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Alert').item.json.callback_base }}/api/ops/events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ops-Token",
+              "value": "={{ $('Alert').item.json.callback_token || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $('Alert').item.json.alert_id, step: 'emirate_ops_lead', status: 'done', role: $('Alert').item.json.channels.emirate_ops_lead.role, channel: $('Alert').item.json.channels.emirate_ops_lead.url, execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Report step 'emirate_ops_lead' to /api/ops/events",
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "Alert in (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert": {
+      "main": [
+        [
+          {
+            "node": "Report: received",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report: received": {
+      "main": [
+        [
+          {
+            "node": "Report: routed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report: routed": {
+      "main": [
+        [
+          {
+            "node": "Severity router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity router": {
+      "main": [
+        [
+          {
+            "node": "Watch: auto-log ack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Advisory message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Escalation message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Watch: auto-log ack": {
+      "main": [
+        [
+          {
+            "node": "Report: logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Advisory message": {
+      "main": [
+        [
+          {
+            "node": "Notify owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify owner": {
+      "main": [
+        [
+          {
+            "node": "Report: owner notified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report: owner notified": {
+      "main": [
+        [
+          {
+            "node": "Wait for ack (15 min)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for ack (15 min)": {
+      "main": [
+        [
+          {
+            "node": "Check ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ack": {
+      "main": [
+        [
+          {
+            "node": "Acknowledged?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledged?": {
+      "main": [
+        [
+          {
+            "node": "Report: acked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Escalation message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalation message": {
+      "main": [
+        [
+          {
+            "node": "Notify owner (escalation)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify escalation contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify owner (escalation)": {
+      "main": [
+        [
+          {
+            "node": "Both notified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify escalation contact": {
+      "main": [
+        [
+          {
+            "node": "Both notified",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Both notified": {
+      "main": [
+        [
+          {
+            "node": "Report: escalated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report: escalated": {
+      "main": [
+        [
+          {
+            "node": "Wait for ack (escalation)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for ack (escalation)": {
+      "main": [
+        [
+          {
+            "node": "Check ack (escalation)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ack (escalation)": {
+      "main": [
+        [
+          {
+            "node": "Acknowledged after escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledged after escalation?": {
+      "main": [
+        [
+          {
+            "node": "Report: acked after escalation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final escalation message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final escalation message": {
+      "main": [
+        [
+          {
+            "node": "Notify emirate operations lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify emirate operations lead": {
+      "main": [
+        [
+          {
+            "node": "Report: emirate ops lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "all"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [],
+  "id": "SentinelAlertRouting"
+}

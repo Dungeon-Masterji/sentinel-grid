@@ -45,6 +45,10 @@ jobs:
           : > apps/api/_vendor/sentinel_explain/__init__.py
           python -m pip install -q pyyaml
           python -c "import json, yaml; print(json.dumps(yaml.safe_load(open('configs/scenarios.yaml'))))" > apps/api/_vendor/scenarios.json
+          # routers/ops.py: alert routing payloads (same code as the pipeline) + channel map
+          mkdir -p apps/api/_vendor/sentinel_ops
+          cp packages/pipelines/ops/notify.py apps/api/_vendor/sentinel_ops/
+          python -c "import json, yaml; print(json.dumps(yaml.safe_load(open('configs/ops_channels.yaml'))))" > apps/api/_vendor/sentinel_ops/ops_channels.json
 
       - name: Pull clinical parquets from data branch
         # Written nightly by .github/workflows/clinical-refresh.yml. If the branch

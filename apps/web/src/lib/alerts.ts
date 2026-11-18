@@ -141,8 +141,10 @@ export type AlertsResponse = {
   scenarios: string[];
 };
 
-export function useAlerts() {
-  return useSWR<AlertsResponse>("/api/alerts", fetcher, { refreshInterval: 60_000 });
+export function useAlerts(includeExpired = false) {
+  return useSWR<AlertsResponse>(includeExpired ? "/api/alerts?include_expired=true" : "/api/alerts", fetcher, {
+    refreshInterval: 60_000,
+  });
 }
 
 export function useAlertDetail(id: string | null) {
