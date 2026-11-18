@@ -34,6 +34,7 @@ function shortReason(r?: string) {
   if (!r) return "n8n unreachable";
   if (/ConnectionError|ConnectTimeout|Max retries|NewConnectionError/.test(r)) return "n8n unreachable";
   if (/not configured/.test(r)) return "N8N_WEBHOOK_URL not set";
+  if (/demo fixture/.test(r)) return r;
   return r.length > 60 ? `${r.slice(0, 57)}…` : r;
 }
 
@@ -115,7 +116,8 @@ export default function OpsPage() {
     const t0 = Date.now();
     setAckAt(null);
     setNow(t0);
-    if (alert.id === OFFLINE_ALERT.id) return setRun({ t0, mode: "simulated", reason: "API unreachable", payload: plan });
+    if (alert.id === OFFLINE_ALERT.id)
+      return setRun({ t0, mode: "simulated", reason: alertsError ? "API unreachable" : "demo fixture (no alerts in window)", payload: plan });
     try {
       const r = await replayAlert(alert.id, asSeverity);
       setRun(r.sent
