@@ -13,7 +13,7 @@ with honest numbers.
 | Operations (routing) | https://sentinel-grid-health.vercel.app/ops |
 | API | https://sentinel-grid-api.azurewebsites.net |
 | Swagger | https://sentinel-grid-api.azurewebsites.net/docs |
-| 2-minute demo video | [docs/media/demo.mp4](docs/media/demo.mp4) |
+| 2-minute demo video | [Watch on Google Drive](https://drive.google.com/file/d/1Cm27mD-EoQFAY6ZNv8T0rtUJf-_Imxkw/view?usp=sharing) |
 | Judges' one-pager | [docs/judge_quick_facts.md](docs/judge_quick_facts.md) |
 
 ![Dashboard: signal pillars, 15 sites, live air quality and fused alerts](docs/media/dashboard.png)
