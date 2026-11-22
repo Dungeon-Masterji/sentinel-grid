@@ -1,0 +1,369 @@
+{
+  "window": {
+    "start": "2023-01-01T00:00:00+00:00",
+    "end": "2025-01-01T00:00:00+00:00",
+    "weeks": 104.4
+  },
+  "overall": {
+    "events": 11,
+    "detected": 11,
+    "sensitivity": 1.0,
+    "mean_lead_time_hours": 36.4,
+    "median_lead_time_hours": 66.0,
+    "detected_before_start": 9,
+    "alerts": 13484,
+    "matched_alerts": 615,
+    "false_alarms": 12869,
+    "ppv": 0.046,
+    "false_alarms_per_week": 123.23,
+    "brier": 0.1044,
+    "brier_climatology": 0.0201,
+    "brier_skill": -4.2,
+    "chance_uniform": {
+      "n": 200,
+      "mode": "uniform",
+      "sensitivity_mean": 0.98,
+      "sensitivity_p95": 1.0,
+      "ppv_mean": 0.026,
+      "ppv_p95": 0.032
+    },
+    "chance_seasonal": {
+      "n": 200,
+      "mode": "seasonal",
+      "sensitivity_mean": 0.997,
+      "sensitivity_p95": 1.0,
+      "ppv_mean": 0.021,
+      "ppv_p95": 0.025
+    },
+    "sensitivity_lift": 0.003,
+    "ppv_lift": 2.19
+  },
+  "by_tier": {
+    "watch": {
+      "events": 11,
+      "detected": 11,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 36.4,
+      "median_lead_time_hours": 66.0,
+      "detected_before_start": 9,
+      "alerts": 13484,
+      "matched_alerts": 615,
+      "false_alarms": 12869,
+      "ppv": 0.046,
+      "false_alarms_per_week": 123.23,
+      "chance_uniform": {
+        "n": 200,
+        "mode": "uniform",
+        "sensitivity_mean": 0.98,
+        "sensitivity_p95": 1.0,
+        "ppv_mean": 0.026,
+        "ppv_p95": 0.032
+      },
+      "chance_seasonal": {
+        "n": 200,
+        "mode": "seasonal",
+        "sensitivity_mean": 0.997,
+        "sensitivity_p95": 1.0,
+        "ppv_mean": 0.021,
+        "ppv_p95": 0.025
+      },
+      "sensitivity_lift": 0.003,
+      "ppv_lift": 2.19
+    },
+    "advisory": {
+      "events": 11,
+      "detected": 8,
+      "sensitivity": 0.727,
+      "mean_lead_time_hours": 24.6,
+      "median_lead_time_hours": 27.2,
+      "detected_before_start": 6,
+      "alerts": 6155,
+      "matched_alerts": 316,
+      "false_alarms": 5839,
+      "ppv": 0.051,
+      "false_alarms_per_week": 55.91,
+      "chance_uniform": {
+        "n": 200,
+        "mode": "uniform",
+        "sensitivity_mean": 0.886,
+        "sensitivity_p95": 1.0,
+        "ppv_mean": 0.021,
+        "ppv_p95": 0.028
+      },
+      "chance_seasonal": {
+        "n": 200,
+        "mode": "seasonal",
+        "sensitivity_mean": 0.953,
+        "sensitivity_p95": 1.0,
+        "ppv_mean": 0.016,
+        "ppv_p95": 0.02
+      },
+      "sensitivity_lift": -0.226,
+      "ppv_lift": 3.19
+    },
+    "warning": {
+      "events": 11,
+      "detected": 6,
+      "sensitivity": 0.545,
+      "mean_lead_time_hours": 17.2,
+      "median_lead_time_hours": 33.5,
+      "detected_before_start": 4,
+      "alerts": 3734,
+      "matched_alerts": 176,
+      "false_alarms": 3558,
+      "ppv": 0.047,
+      "false_alarms_per_week": 34.07,
+      "chance_uniform": {
+        "n": 200,
+        "mode": "uniform",
+        "sensitivity_mean": 0.614,
+        "sensitivity_p95": 0.818,
+        "ppv_mean": 0.015,
+        "ppv_p95": 0.021
+      },
+      "chance_seasonal": {
+        "n": 200,
+        "mode": "seasonal",
+        "sensitivity_mean": 0.76,
+        "sensitivity_p95": 0.909,
+        "ppv_mean": 0.01,
+        "ppv_p95": 0.013
+      },
+      "sensitivity_lift": -0.215,
+      "ppv_lift": 4.7
+    }
+  },
+  "per_scenario": {
+    "heat-stress-cluster": {
+      "events": 5,
+      "detected": 5,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 19.2,
+      "median_lead_time_hours": 66.0,
+      "detected_before_start": 4,
+      "alerts": 2858,
+      "matched_alerts": 158,
+      "false_alarms": 2700,
+      "ppv": 0.055,
+      "false_alarms_per_week": 25.85,
+      "brier": 0.1276,
+      "brier_skill": -1.641
+    },
+    "respiratory-dust-event": {
+      "events": 6,
+      "detected": 6,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 41.6,
+      "median_lead_time_hours": 47.5,
+      "detected_before_start": 5,
+      "alerts": 3452,
+      "matched_alerts": 163,
+      "false_alarms": 3289,
+      "ppv": 0.047,
+      "false_alarms_per_week": 31.5,
+      "brier": 0.0751,
+      "brier_skill": -9.058
+    },
+    "infectious-cluster-signal": {
+      "events": 1,
+      "detected": 1,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 69.0,
+      "median_lead_time_hours": 69.0,
+      "detected_before_start": 1,
+      "alerts": 7174,
+      "matched_alerts": 294,
+      "false_alarms": 6880,
+      "ppv": 0.041,
+      "false_alarms_per_week": 65.88,
+      "brier": 0.1105,
+      "brier_skill": -35.011
+    }
+  },
+  "by_event_type": {
+    "dust_storm": {
+      "events": 5,
+      "detected": 5,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 47.1,
+      "median_lead_time_hours": 70.0,
+      "detected_before_start": 4
+    },
+    "flood": {
+      "events": 1,
+      "detected": 1,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 69.0,
+      "median_lead_time_hours": 69.0,
+      "detected_before_start": 1
+    },
+    "heatwave": {
+      "events": 4,
+      "detected": 4,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": 65.8,
+      "median_lead_time_hours": 66.0,
+      "detected_before_start": 4
+    },
+    "ramadan_stress": {
+      "events": 1,
+      "detected": 1,
+      "sensitivity": 1.0,
+      "mean_lead_time_hours": -167.0,
+      "median_lead_time_hours": -167.0,
+      "detected_before_start": 0
+    }
+  },
+  "coverage_matrix": {
+    "scenarios": [
+      "heat-stress-cluster",
+      "respiratory-dust-event",
+      "infectious-cluster-signal"
+    ],
+    "event_types": [
+      "heatwave",
+      "dust_storm",
+      "flood",
+      "ramadan_stress",
+      "infectious_cluster"
+    ],
+    "values": [
+      [
+        1.0,
+        0.6,
+        1.0,
+        1.0,
+        null
+      ],
+      [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        null
+      ],
+      [
+        0.75,
+        0.8,
+        1.0,
+        1.0,
+        null
+      ]
+    ],
+    "n_events": {
+      "heatwave": 4,
+      "dust_storm": 5,
+      "flood": 1,
+      "ramadan_stress": 1,
+      "infectious_cluster": 0
+    }
+  },
+  "calibration": {
+    "bins": [
+      {
+        "bin": 0,
+        "lo": 0.0,
+        "hi": 0.1,
+        "n": 139,
+        "mean_predicted": 0.092,
+        "observed_frequency": 0.0
+      },
+      {
+        "bin": 1,
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 94510,
+        "mean_predicted": 0.173,
+        "observed_frequency": 0.005
+      },
+      {
+        "bin": 2,
+        "lo": 0.2,
+        "hi": 0.3,
+        "n": 368106,
+        "mean_predicted": 0.259,
+        "observed_frequency": 0.015
+      },
+      {
+        "bin": 3,
+        "lo": 0.3,
+        "hi": 0.4,
+        "n": 243048,
+        "mean_predicted": 0.339,
+        "observed_frequency": 0.0338
+      },
+      {
+        "bin": 4,
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 55078,
+        "mean_predicted": 0.439,
+        "observed_frequency": 0.0256
+      },
+      {
+        "bin": 5,
+        "lo": 0.5,
+        "hi": 0.6,
+        "n": 18201,
+        "mean_predicted": 0.544,
+        "observed_frequency": 0.0255
+      },
+      {
+        "bin": 6,
+        "lo": 0.6,
+        "hi": 0.7,
+        "n": 6853,
+        "mean_predicted": 0.638,
+        "observed_frequency": 0.0156
+      },
+      {
+        "bin": 7,
+        "lo": 0.7,
+        "hi": 0.8,
+        "n": 3312,
+        "mean_predicted": 0.737,
+        "observed_frequency": 0.0
+      },
+      {
+        "bin": 8,
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 227,
+        "mean_predicted": 0.823,
+        "observed_frequency": 0.0
+      },
+      {
+        "bin": 9,
+        "lo": 0.9,
+        "hi": 1.0,
+        "n": 0,
+        "mean_predicted": null,
+        "observed_frequency": null
+      }
+    ],
+    "brier": 0.1044,
+    "brier_climatology": 0.0201,
+    "brier_skill": -4.2,
+    "n": 789474,
+    "positives": 16182,
+    "base_rate": 0.0205
+  },
+  "matching": {
+    "lead_window_hours": 72.0,
+    "grace_hours": 12.0
+  },
+  "generated_at": "2026-11-22T11:14:04+00:00",
+  "timings": {
+    "total_s": 1127.9,
+    "epochs": 731,
+    "epoch_s_mean": 6.02,
+    "workers": 4,
+    "history_s": 0.0
+  },
+  "notice": "Environmental signals are real (ERA5 + CAMS). Clinical (Synthea) and occupational (simulated workforce) signals are synthetic, driven by the real weather. See docs/backtest_methodology.md.",
+  "sources": {
+    "open-meteo-era5+cams": 921240,
+    "synthetic-workforce(real-weather)": 859824,
+    "synthea+weather-coupling(T-2)": 818880
+  }
+}
