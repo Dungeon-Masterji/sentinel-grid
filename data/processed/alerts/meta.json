@@ -1,0 +1,106 @@
+{
+  "as_of": "2026-11-28T18:41:30.953707Z",
+  "mode": "map",
+  "n_alerts": 1,
+  "timings": {
+    "panel_s": 1.01,
+    "fit_s": 5.16,
+    "fuse_s": 1.38,
+    "surrogate_s": 2.08,
+    "build_explain_s": 0.02,
+    "shap_ms_max": 4.4,
+    "narrate_s": 2.02,
+    "total_s": 13.96
+  },
+  "surrogates": {
+    "heat-stress-cluster": {
+      "regression": {
+        "scenario_id": "heat-stress-cluster",
+        "task": "regression",
+        "model_fitted_at": "2026-11-28T18:41:30.953707+00:00",
+        "n_train": 25908,
+        "n_holdout": 6477,
+        "best_iteration": 100,
+        "fit_s": 0.228,
+        "r2_holdout": 0.9989,
+        "reused": false
+      },
+      "classification": {
+        "scenario_id": "heat-stress-cluster",
+        "task": "classification",
+        "model_fitted_at": "2026-11-28T18:41:30.953707+00:00",
+        "n_train": 25909,
+        "n_holdout": 6476,
+        "best_iteration": 83,
+        "fit_s": 0.23,
+        "auc_holdout": 0.9996,
+        "reused": false
+      }
+    },
+    "respiratory-dust-event": {
+      "regression": {
+        "scenario_id": "respiratory-dust-event",
+        "task": "regression",
+        "model_fitted_at": "2026-11-28T18:41:30.953707+00:00",
+        "n_train": 25908,
+        "n_holdout": 6477,
+        "best_iteration": 100,
+        "fit_s": 0.283,
+        "r2_holdout": 0.9983,
+        "reused": false
+      },
+      "classification": {
+        "scenario_id": "respiratory-dust-event",
+        "task": "classification",
+        "model_fitted_at": "2026-11-28T18:41:30.953707+00:00",
+        "n_train": 25909,
+        "n_holdout": 6476,
+        "best_iteration": 100,
+        "fit_s": 0.273,
+        "auc_holdout": 0.9999,
+        "reused": false
+      }
+    },
+    "infectious-cluster-signal": {
+      "regression": {
+        "scenario_id": "infectious-cluster-signal",
+        "task": "regression",
+        "model_fitted_at": "2026-11-28T18:41:30.953707+00:00",
+        "n_train": 25698,
+        "n_holdout": 6424,
+        "best_iteration": 100,
+        "fit_s": 0.228,
+        "r2_holdout": 0.9997,
+        "reused": false
+      },
+      "classification": {
+        "scenario_id": "infectious-cluster-signal",
+        "task": "classification",
+        "model_fitted_at": "2026-11-28T18:41:30.953707+00:00",
+        "n_train": 25698,
+        "n_holdout": 6424,
+        "best_iteration": 90,
+        "fit_s": 0.214,
+        "auc_holdout": 1.0,
+        "reused": false
+      }
+    }
+  },
+  "narration": {
+    "alerts": 1,
+    "calls": 4,
+    "tokens": 2973,
+    "tokens_today": 13941,
+    "offline": null,
+    "llm_en": 1,
+    "llm_ar": 1,
+    "llm_action": 1
+  },
+  "notice": "Fused from synthetic clinical (Synthea) and synthetic workforce data plus real environmental observations. Decision support only.",
+  "routing": {
+    "enabled": false,
+    "sent": 0,
+    "failed": 0,
+    "skipped": 1
+  }
+}
